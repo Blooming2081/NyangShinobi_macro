@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 1,
+  "version": "v0.1",
+  "sourceOfTruth": "v2.0.6",
+  "screenElements": [
+    {
+      "path": "assets/images/image4.PNG",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "retry_entry",
+      "role": "game_button_or_title"
+    },
+    {
+      "path": "assets/images/image5.PNG",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "card_confirm",
+      "role": "game_button_or_title",
+      "note": "거울 카드 선택 확인. (240,794) 주변 컨텍스트만"
+    },
+    {
+      "path": "assets/images/image6.PNG",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "unverified_complete",
+      "role": "game_button_or_title",
+      "note": "실제 이미지는 임무 글자; 거울 완료 후보로 쓰였지만 확인 필요"
+    },
+    {
+      "path": "assets/images/image8.PNG",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "failed_title",
+      "role": "game_button_or_title"
+    },
+    {
+      "path": "assets/images/image9.PNG",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "failure_confirm",
+      "role": "game_button_or_title",
+      "note": "거울 실패 결과 확인. 카드 확인 버튼과 구분"
+    },
+    {
+      "path": "assets/images_nav/date_change_followup_close.png",
+      "status": "required",
+      "mode": "date_change",
+      "screenId": "daily_followup_close",
+      "role": "modal_close_button",
+      "note": "v2.0.6 날짜 변경 정상 진행 UI. 새 이벤트 팝업과 별도 인식/우선순위 처리"
+    },
+    {
+      "path": "assets/images_nav/date_changed.png",
+      "status": "required",
+      "mode": "date_change",
+      "screenId": "date_change_modal",
+      "role": "modal_title",
+      "note": "v2.0.6 날짜 변경 정상 진행 UI. 새 이벤트 팝업과 별도 인식/우선순위 처리"
+    },
+    {
+      "path": "assets/images_nav/dungeon_enter.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "enter_or_next_floor",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/extreme_preset_item.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "extreme_preset_row",
+      "role": "button",
+      "note": "극의 프리셋 행 찾기; 통합 번호 10 우선"
+    },
+    {
+      "path": "assets/images_nav/extreme_wave20_progress50_reference.png",
+      "status": "reference",
+      "mode": "mission",
+      "screenId": "wave20_reference",
+      "role": "full_screen_reference",
+      "note": "조건부 비기 검증 fixture 후보. 기본 런타임 제외"
+    },
+    {
+      "path": "assets/images_nav/home_trial.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "home_trial",
+      "role": "nav"
+    },
+    {
+      "path": "assets/images_nav/mirror_beast.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "attr_beast",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/mirror_earth.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "attr_earth",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/mirror_entry_reference.png",
+      "status": "reference",
+      "mode": "mirror",
+      "screenId": "entry_reference",
+      "role": "full_screen_reference",
+      "note": "전체 화면 참조. 그대로 matchTemplate 전체 검색하지 않음"
+    },
+    {
+      "path": "assets/images_nav/mirror_fire.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "attr_fire",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/mirror_thunder.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "attr_thunder",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/mirror_training.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "training",
+      "role": "nav"
+    },
+    {
+      "path": "assets/images_nav/mirror_water.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "attr_water",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/mirror_wind.png",
+      "status": "required",
+      "mode": "mirror",
+      "screenId": "attr_wind",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/mission.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "home_mission",
+      "role": "nav"
+    },
+    {
+      "path": "assets/images_nav/mission_clear.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "common_result_confirm",
+      "role": "button",
+      "note": "성공/실패 공통 버튼. 성공 단독 판정 금지"
+    },
+    {
+      "path": "assets/images_nav/mission_double_reward.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "result_optional_double_reward",
+      "role": "icon",
+      "note": "임무 성공 제목+공용 확인이 동시에 감지된 화면에서만 사용. 작은 재생 아이콘 ROI를 찾고 버튼 중앙을 탭한다."
+    },
+    {
+      "path": "assets/images_nav/mission_energy_empty_reference.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "energy_empty",
+      "role": "full_screen_reference",
+      "note": "전체 화면 참조. ROI 추출해 소진 팝업 판별"
+    },
+    {
+      "path": "assets/images_nav/mission_enter.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "enter_stage",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/mission_failed.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "result_failed_title",
+      "role": "title",
+      "note": "명시적 실패 제목. 결과 확인 버튼은 따로 탐색"
+    },
+    {
+      "path": "assets/images_nav/mission_level_up.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "level_up_popup",
+      "role": "popup"
+    },
+    {
+      "path": "assets/images_nav/mission_rank_extreme.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "rank_extreme",
+      "role": "tab"
+    },
+    {
+      "path": "assets/images_nav/mission_rank_lower.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "rank_lower",
+      "role": "tab"
+    },
+    {
+      "path": "assets/images_nav/mission_rank_upper.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "rank_upper",
+      "role": "tab"
+    },
+    {
+      "path": "assets/images_nav/mission_success_startup_reference.png",
+      "status": "excluded",
+      "mode": "excluded",
+      "screenId": "outside_v01",
+      "role": "reference"
+    },
+    {
+      "path": "assets/images_nav/mission_success_title.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "result_success_title",
+      "role": "title",
+      "note": "mission_clear와 같은 프레임에서 확인"
+    },
+    {
+      "path": "assets/images_nav/neko_ninja_result.png",
+      "status": "required",
+      "mode": "neko_ninja",
+      "screenId": "summon_result_reference",
+      "role": "full_screen_reference",
+      "note": "어두워진 제목과 결과의 계속 안내 2개 ROI 교차 검사. 결과에서만 계속하기 탭."
+    },
+    {
+      "path": "assets/images_nav/neko_ninja_summon.png",
+      "status": "required",
+      "mode": "neko_ninja",
+      "screenId": "summon_page_reference",
+      "role": "full_screen_reference",
+      "note": "네코 닌자 제목·10회 버튼·뽑기 탭 3개 ROI 교차 검사. 전체 화면을 단일 버튼 템플릿으로 검색하지 않는다."
+    },
+    {
+      "path": "assets/images_nav/reroll.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "card_reroll",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/roulette_ok.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "roulette_confirm",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/roulette_skip.png",
+      "status": "required",
+      "mode": "mission",
+      "screenId": "roulette_skip",
+      "role": "button"
+    },
+    {
+      "path": "assets/images_nav/startup_tap_to_start_reference.png",
+      "status": "excluded",
+      "mode": "excluded",
+      "screenId": "outside_v01",
+      "role": "reference"
+    }
+  ],
+  "criticalRules": [
+    {
+      "id": "mission_result_success",
+      "requiresSameFrame": [
+        "assets/images_nav/mission_success_title.png",
+        "assets/images_nav/mission_clear.png"
+      ],
+      "excludes": [
+        "assets/images_nav/mission_failed.png"
+      ],
+      "effect": "confirmed_success"
+    },
+    {
+      "id": "mission_result_failure",
+      "requires": [
+        "assets/images_nav/mission_failed.png"
+      ],
+      "confirmButton": "assets/images_nav/mission_clear.png",
+      "effect": "confirmed_failure"
+    },
+    {
+      "id": "mission_card",
+      "anyOf": [
+        "assets/images_nav/reroll.png",
+        "mission_three_card_layout",
+        "extreme_acquired_layout"
+      ],
+      "effect": "run_skill_priorities"
+    },
+    {
+      "id": "mirror_card",
+      "requires": [
+        "assets/images/image5.PNG",
+        "mirror_card_layout_4_3_2_1"
+      ],
+      "effect": "select_cards_then_confirm"
+    },
+    {
+      "id": "mirror_failure",
+      "requires": [
+        "assets/images/image8.PNG"
+      ],
+      "confirmButton": "assets/images/image9.PNG",
+      "effect": "retry_entry"
+    },
+    {
+      "id": "mirror_success_candidate",
+      "requires": [
+        "assets/images/image6.PNG"
+      ],
+      "alsoRequires": "UNVERIFIED_ADD_SECONDARY_SCREEN_EVIDENCE",
+      "effect": "do_not_click_until_verified"
+    },
+    {
+      "id": "mission_double_reward_optional",
+      "onlyAfter": "mission_result_success",
+      "requiresSameFrame": [
+        "assets/images_nav/mission_success_title.png",
+        "assets/images_nav/mission_clear.png"
+      ],
+      "option": "mission.doubleReward.enabled",
+      "optionalEvidence": "assets/images_nav/mission_double_reward.png",
+      "action": "tap_double_button_center_once_then_wait_for_distinct_screen_transition_and_return_to_success",
+      "forbidden": "tap_old_confirm_coordinates_during_ad_or_reward_screen",
+      "effect": "return_to_success_then_locate_fresh_mission_clear"
+    },
+    {
+      "id": "neko_summon_page",
+      "mode": "neko_ninja",
+      "requires": [
+        "assets/images_nav/neko_ninja_summon.png"
+      ],
+      "roiCount": 3,
+      "action": "tap_ten_draw_at_normalized_305_1164_once_then_verify_transition",
+      "forbidden": "tap_on_unknown_screen_or_during_pending_verification",
+      "effect": "neko_result_or_next_summon_page"
+    },
+    {
+      "id": "neko_summon_result",
+      "mode": "neko_ninja",
+      "requires": [
+        "assets/images_nav/neko_ninja_result.png"
+      ],
+      "roiCount": 2,
+      "action": "tap_continue_at_normalized_305_1164_once_then_verify_transition",
+      "forbidden": "assume_result_from_summon_page_alone",
+      "effect": "neko_summon_page_or_wait"
+    }
+  ],
+  "priorityFolders": {
+    "lower": "assets/skill_priority/lower_mission",
+    "upper": "assets/skill_priority/upper_mission",
+    "extreme": "assets/skill_priority/extreme_mission"
+  },
+  "skillCardOrderRule": "ascending_numeric_filename_prefix_if_match_above_context_threshold"
+}

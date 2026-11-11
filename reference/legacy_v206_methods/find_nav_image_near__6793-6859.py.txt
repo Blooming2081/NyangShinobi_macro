@@ -1,0 +1,70 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L6793-L6859
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @opencv_serialized
+    def find_nav_image_near(
+        self, template_path, center_ratio, tolerance_ratio, threshold=0.66,
+        screen=None,
+    ):
+        """고정 UI 템플릿을 예상 중심 주변에서만 검색합니다."""
+        if not os.path.exists(template_path):
+            return False, 0, 0, 0.0
+        if screen is None:
+            screen = self.adb_screencap()
+        original_h, original_w = screen.shape[:2]
+        screen = self._normalize_mission_screen(screen)
+        template, _ = self._cached_template(
+            template_path, cv2.IMREAD_GRAYSCALE
+        )
+        if template is None:
+            return False, 0, 0, 0.0
+        screen_gray = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+
+        screen_h, screen_w = screen.shape[:2]
+        center_x = center_ratio[0] * screen_w
+        center_y = center_ratio[1] * screen_h
+        tolerance_x = tolerance_ratio[0] * screen_w
+        tolerance_y = tolerance_ratio[1] * screen_h
+        min_center_x, max_center_x = center_x - tolerance_x, center_x + tolerance_x
+        min_center_y, max_center_y = center_y - tolerance_y, center_y + tolerance_y
+
+        best_val, best_x, best_y = -1.0, 0, 0
+        for scale in (0.85, 0.90, 0.95, 1.0, 1.05, 1.10, 1.15):
+            interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
+            resized = self._cached_scaled_template(
+                template_path, cv2.IMREAD_GRAYSCALE,
+                scale, interpolation,
+            )
+            height, width = resized.shape[:2]
+            if height < 8 or width < 8:
+                continue
+
+            left = max(0, int(min_center_x - width / 2))
+            right = min(screen_w, int(max_center_x + width / 2) + 1)
+            top = max(0, int(min_center_y - height / 2))
+            bottom = min(screen_h, int(max_center_y + height / 2) + 1)
+            roi = screen_gray[top:bottom, left:right]
+            if roi.shape[0] < height or roi.shape[1] < width:
+                continue
+
+            result = cv2.matchTemplate(roi, resized, cv2.TM_CCOEFF_NORMED)
+            _, value, _, location = cv2.minMaxLoc(result)
+            del result
+            match_x = left + location[0] + width // 2
+            match_y = top + location[1] + height // 2
+            if not (
+                min_center_x <= match_x <= max_center_x
+                and min_center_y <= match_y <= max_center_y
+            ):
+                continue
+            if value > best_val:
+                best_val, best_x, best_y = value, match_x, match_y
+
+        if best_val >= threshold:
+            return (
+                True,
+                round(best_x * original_w / 480),
+                round(best_y * original_h / 1320),
+                best_val,
+            )
+        return False, 0, 0, best_val

@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0",
+  "modules": [
+    {
+      "id": "mission",
+      "kind": "game_mode",
+      "implementation": "Features/Mission/MissionModule",
+      "enabled": true,
+      "settingsPath": "mission",
+      "sources": [
+        "docs/02_FLOW_MISSION.md"
+      ]
+    },
+    {
+      "id": "mirror",
+      "kind": "game_mode",
+      "implementation": "Features/Mirror/MirrorModule",
+      "enabled": true,
+      "settingsPath": "mirror",
+      "sources": [
+        "docs/03_FLOW_MIRROR.md"
+      ]
+    },
+    {
+      "id": "neko_ninja",
+      "kind": "game_mode",
+      "implementation": "Features/NekoNinja/NekoNinjaModule",
+      "enabled": true,
+      "settingsPath": "nekoNinja",
+      "sources": [
+        "docs/08_NEKO_NINJA.md"
+      ]
+    },
+    {
+      "id": "double_reward",
+      "kind": "mission_subflow",
+      "implementation": "Features/DoubleReward/DoubleRewardHandler",
+      "enabled": true,
+      "settingsPath": "mission.doubleReward",
+      "sources": [
+        "docs/09_DOUBLE_REWARD.md"
+      ]
+    },
+    {
+      "id": "date_change",
+      "kind": "global_normal_game_interrupt",
+      "implementation": "Features/DateChange/DateChangeHandler",
+      "enabled": true,
+      "settingsPath": "dateChange",
+      "sources": [
+        "docs/12_DATE_CHANGE.md"
+      ]
+    },
+    {
+      "id": "events",
+      "kind": "extensibility",
+      "implementation": "Features/Events/EventDispatcher",
+      "enabled": true,
+      "settingsPath": "events",
+      "sources": [
+        "docs/11_EVENT_EXTENSION.md"
+      ]
+    }
+  ],
+  "lifecycle": "explicit DI registration; modules disabled by config are not evaluated; no dynamic DLL loading in v0.1"
+}

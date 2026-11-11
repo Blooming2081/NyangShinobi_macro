@@ -1,0 +1,18 @@
+    def neko_ninja_summon_loop(self):
+        self.log("네코 닌자 고속 뽑기: 뽑기·결과 화면에서 10회 좌표 반복 입력 / 재화 소모 / 중지 버튼으로 종료")
+        last_wait_log = -float("inf")
+        while not self.stop_event.is_set():
+            self.checkpoint()
+            screen = self.adb_screencap()
+            found, score = self.detect_neko_ninja_summon(screen)
+            result_screen = not found and self.detect_neko_ninja_result(screen)
+            if found or result_screen:
+                self.checkpoint()
+                height, width = screen.shape[:2]
+                self.adb_click(round(width * 305 / 480), round(height * 1164 / 1320))
+                self.mark_progress("네코 닌자 결과 계속하기" if result_screen else "네코 닌자 10회 뽑기 입력")
+            elif time.monotonic() - last_wait_log >= 10.0:
+                self.log(f"네코 닌자 뽑기 화면 대기 / 판정값 {score:.3f} → 다른 화면에는 입력하지 않음")
+                last_wait_log = time.monotonic()
+            if self.stop_event.wait(0.05):
+                return

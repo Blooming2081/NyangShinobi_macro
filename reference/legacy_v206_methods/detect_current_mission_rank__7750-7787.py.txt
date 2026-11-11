@@ -1,0 +1,41 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L7750-L7787
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def detect_current_mission_rank(self):
+        """세 임무 탭을 모두 비교해 일치율이 가장 높은 선택 상태만 반환합니다."""
+        templates = {
+            "하위 임무": NAV_TEMPLATES["mission_rank_lower"],
+            "상위 임무": NAV_TEMPLATES["mission_rank_upper"],
+            "극의 임무": NAV_TEMPLATES["mission_rank_extreme"],
+        }
+
+        scores = {}
+        for rank, template in templates.items():
+            _, _, _, val = self.find_nav_image(template, threshold=0.0)
+            scores[rank] = float(val)
+
+        ordered = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        best_rank, best_val = ordered[0]
+        second_rank, second_val = ordered[1]
+
+        self.log(
+            "임무 탭 비교: "
+            + " / ".join(f"{rank} {val:.3f}" for rank, val in scores.items())
+        )
+
+        # 선택 탭은 다른 두 탭보다 확실히 높아야 합니다.
+        if best_val < 0.72:
+            self.log(
+                f"현재 임무 탭 확인 실패: 최고 {best_rank} {best_val:.3f}"
+            )
+            return None, best_val
+
+        if best_val - second_val < 0.035:
+            self.log(
+                f"현재 임무 탭 판별 보류: {best_rank} {best_val:.3f}, "
+                f"{second_rank} {second_val:.3f}"
+            )
+            return None, best_val
+
+        self.log(f"현재 임무 확인: {best_rank} / 최고 일치율 {best_val:.3f}")
+        return best_rank, best_val

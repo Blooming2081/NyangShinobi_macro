@@ -1,0 +1,25 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L7880-L7901
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @staticmethod
+    @opencv_serialized
+    def _mission_stage_panel_change(before_screen, after_screen):
+        """화살표 입력 전후의 중앙 관문 카드가 실제로 바뀌었는지 판정합니다."""
+        before_screen = MacroEngine._normalize_mission_screen(before_screen)
+        after_screen = MacroEngine._normalize_mission_screen(after_screen)
+        if before_screen is None or after_screen is None:
+            return False, 0.0
+        # 화살표 자체의 터치 효과는 제외하고 관문 그림·번호·보상 정보가
+        # 표시되는 중앙 카드만 비교합니다. 입력이 씹힌 기존 학습 화면은
+        # 변화율 0.003~0.004였으므로 0.008 이상만 실제 카드 전환입니다.
+        before_roi = cv2.cvtColor(
+            before_screen[350:800, 20:430], cv2.COLOR_BGR2GRAY
+        )
+        after_roi = cv2.cvtColor(
+            after_screen[350:800, 20:430], cv2.COLOR_BGR2GRAY
+        )
+        difference = cv2.absdiff(before_roi, after_roi)
+        changed_ratio = (
+            float(np.count_nonzero(difference >= 18)) / difference.size
+        )
+        return changed_ratio >= 0.008, changed_ratio

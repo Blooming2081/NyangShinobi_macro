@@ -1,0 +1,35 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L8286-L8317
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def select_configured_mission_character_preset(self):
+        """GUI 설정을 이름이 아닌 프리셋 목록 순번으로 적용합니다."""
+        preset = normalize_mission_character_preset(
+            self.mission_character_preset
+        )
+        self.mission_character_preset = preset
+        if preset == "현재 선택 유지":
+            self.log("임무 캐릭터 프리셋: 현재 선택 유지")
+            return
+        if preset == "등급별 자동":
+            preset_number = {
+                "하위 임무": 2,
+                "상위 임무": 1,
+                "극의 임무": 10,
+            }.get(self.mission_rank, 1)
+            self.log(
+                f"임무 캐릭터 프리셋: {self.mission_rank} 등급별 자동 "
+                f"→ 목록 {preset_number}번째 선택"
+            )
+        else:
+            match = re.fullmatch(r"프리셋\s+(\d+)", preset)
+            if not match:
+                raise ValueError(f"지원하지 않는 임무 프리셋 설정입니다: {preset}")
+            preset_number = int(match.group(1))
+        self.select_mission_preset_number(preset_number)
+        self.log(
+            f"임무 캐릭터 프리셋 선택 완료: 목록 {preset_number}번째 "
+            "(사용자 지정 이름 무관)"
+        )
+        self.mark_progress(
+            f"임무 캐릭터 프리셋 목록 {preset_number}번째 선택"
+        )

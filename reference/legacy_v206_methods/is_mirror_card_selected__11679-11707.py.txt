@@ -1,0 +1,32 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L11679-L11707
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @staticmethod
+    @opencv_serialized
+    def _is_mirror_card_selected(screen, center_x):
+        """카드 외곽의 초록 선택 테두리가 실제로 켜졌는지 확인합니다."""
+        screen = MacroEngine._normalize_mission_screen(screen)
+        if screen is None:
+            return False, 0.0
+        left = max(0, int(center_x) - 57)
+        right = min(screen.shape[1], int(center_x) + 58)
+        top, bottom = 410, 700
+        patch = screen[top:bottom, left:right]
+        if patch.size == 0:
+            return False, 0.0
+        hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+        green = (
+            (hsv[:, :, 0] >= 36)
+            & (hsv[:, :, 0] <= 92)
+            & (hsv[:, :, 1] >= 105)
+            & (hsv[:, :, 2] >= 105)
+        )
+        strip = min(7, max(2, patch.shape[1] // 12))
+        border_pixels = np.concatenate((
+            green[:, :strip].reshape(-1),
+            green[:, -strip:].reshape(-1),
+            green[:strip, :].reshape(-1),
+            green[-strip:, :].reshape(-1),
+        ))
+        score = float(np.mean(border_pixels))
+        return score >= 0.055, score

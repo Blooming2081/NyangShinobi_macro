@@ -1,0 +1,35 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L7358-L7389
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def enter_from_home(self):
+        # 장시간 실행 중 04:00을 지난 경우에도 다음 거울 입장 직전에 갱신합니다.
+        self.apply_weekday_mirror_schedule()
+        self.log(f"{self.attr} 진입 시작 / 캐릭터 {self.character}번")
+
+        # 재실행·중지 후 현재 화면이 이미 속성 선택 또는 거울 입장 화면이면
+        # 존재하지 않는 홈의 시련 버튼을 기다리지 않고 그 위치부터 이어갑니다.
+        current_screen = self.adb_screencap()
+        if self.resume_mirror_from_attribute_selection(current_screen):
+            self.log("거울 속성 선택 화면에서 기존 전투 루틴으로 연결")
+            return
+        if self.detect_mirror_entry_screen(current_screen):
+            if self.enter_current_mirror_at_start():
+                self.log("거울 입장 화면에서 기존 전투 루틴으로 연결")
+                return
+
+        self.open_trial_screen_from_home()
+        self.wait_nav_and_click(
+            NAV_TEMPLATES["mirror_training"],
+            "음양의 거울 훈련 입장",
+            0.66,
+            timeout=15,
+        )
+        time.sleep(1.2)
+        if self.attr not in NAV_TEMPLATES:
+            raise RuntimeError(f"{self.attr} 거울 이미지는 아직 등록되지 않았습니다.")
+        self.wait_nav_and_click(NAV_TEMPLATES[self.attr], f"{self.attr} 거울", 0.67)
+        time.sleep(1.2)
+        self.character_click(self.character)
+        time.sleep(0.5)
+        self.wait_nav_and_click(NAV_TEMPLATES["dungeon_enter"], "입장 버튼", 0.64)
+        self.log("기존 전투 루틴으로 연결")

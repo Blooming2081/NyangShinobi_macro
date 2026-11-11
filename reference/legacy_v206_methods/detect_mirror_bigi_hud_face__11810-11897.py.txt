@@ -1,0 +1,91 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L11810-L11897
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @staticmethod
+    @opencv_serialized
+    def _detect_mirror_bigi_hud_face(screen):
+        """거울 HUD의 속성별 발광 비기 얼굴과 실제 클릭 중심을 찾습니다."""
+        screen = MacroEngine._normalize_mission_screen(screen)
+        if screen is None:
+            return False, 0, BIGI_MIRROR_ALLOWED_CENTER
+
+        height, width = screen.shape[:2]
+        left, top = max(0, width - 90), 350
+        right, bottom = width, min(height, 510)
+        if right <= left or bottom <= top:
+            return False, 0, BIGI_MIRROR_ALLOWED_CENTER
+
+        roi = screen[top:bottom, left:right]
+        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        orange = cv2.inRange(
+            hsv,
+            np.array((0, 120, 150), dtype=np.uint8),
+            np.array((35, 255, 255), dtype=np.uint8),
+        )
+        orange = cv2.morphologyEx(
+            orange,
+            cv2.MORPH_CLOSE,
+            np.ones((3, 3), dtype=np.uint8),
+            iterations=1,
+        )
+        count, _, stats, _ = cv2.connectedComponentsWithStats(orange)
+        area = 0
+        orange_present = False
+        if count > 1:
+            component = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+            area = int(stats[component, cv2.CC_STAT_AREA])
+            box_x = int(stats[component, cv2.CC_STAT_LEFT]) + left
+            box_y = int(stats[component, cv2.CC_STAT_TOP]) + top
+            box_w = int(stats[component, cv2.CC_STAT_WIDTH])
+            box_h = int(stats[component, cv2.CC_STAT_HEIGHT])
+            orange_present = (
+                area >= 450
+                and box_w >= 50
+                and box_h >= 50
+                and box_x + box_w >= width - 20
+                and 370 <= box_y + box_h // 2 <= 490
+            )
+
+        # 비둔·화둔의 주황색뿐 아니라 수둔·뇌둔 등의 청록색 발광도
+        # 동일한 비기 얼굴입니다. 실제 고정 허용 좌표 주위의 큰 원형 테두리와
+        # 얼굴 내부 명암·윤곽을 결합해 작은 일반 스킬 아이콘은 제외합니다.
+        center_x, center_y = BIGI_MIRROR_ALLOWED_CENTER
+        local_x = center_x - left
+        local_y = center_y - top
+        yy, xx = np.ogrid[:roi.shape[0], :roi.shape[1]]
+        distance_sq = (xx - local_x) ** 2 + (yy - local_y) ** 2
+        annulus = (distance_sq >= 31 ** 2) & (distance_sq <= 49 ** 2)
+        inner = distance_sq <= 31 ** 2
+        saturation = hsv[:, :, 1]
+        value = hsv[:, :, 2]
+        colored_bright = (saturation >= 70) & (value >= 130)
+        bright = value >= 175
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 45, 120) > 0
+        ring_color_ratio = float(np.mean(colored_bright[annulus]))
+        ring_bright_ratio = float(np.mean(bright[annulus]))
+        inner_std = float(np.std(gray[inner]))
+        inner_edge_ratio = float(np.mean(edges[inner]))
+        colored_area = int(np.count_nonzero(colored_bright[annulus]))
+        generic_present = (
+            ring_color_ratio >= 0.28
+            and ring_bright_ratio >= 0.25
+            and inner_std >= 30.0
+            and inner_edge_ratio >= 0.12
+        )
+
+        # 화둔 계열 캐릭터는 얼굴 그림 자체의 주황 픽셀만으로도 큰 연결
+        # 성분(로그상 약 1,800px)을 만들 수 있습니다. 예전의 orange_present
+        # 단독 허용은 사용 후에도 남는 일반 초상화를 준비된 비기 얼굴로
+        # 계속 오인했습니다. 주황 계열도 원형 외곽 발광이 함께 있어야만
+        # 사용 가능 상태로 인정합니다.
+        orange_ready = (
+            orange_present
+            and ring_color_ratio >= 0.20
+            and ring_bright_ratio >= 0.20
+        )
+        present = orange_ready or generic_present
+        if not present:
+            return False, max(area, colored_area), BIGI_MIRROR_ALLOWED_CENTER
+
+        return True, max(area, colored_area), BIGI_MIRROR_ALLOWED_CENTER

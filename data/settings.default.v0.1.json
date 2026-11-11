@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "appVersion": "0.1.0",
+  "platform": "windows-x64",
+  "adb": {
+    "deviceSerial": null,
+    "autoRecoveryEnabled": false
+  },
+  "mode": "mission",
+  "mission": {
+    "rank": "lower",
+    "characterPreset": "auto_by_rank",
+    "autoPresetNumbers": {
+      "lower": 2,
+      "upper": 1,
+      "extreme": 10
+    },
+    "nextStage": false,
+    "stopAfterClear": false,
+    "switchToMirrorAfterFailures": true,
+    "failureCountThreshold": 1,
+    "onEnergyEmpty": "switch_to_mirror",
+    "doubleReward": {
+      "enabled": true,
+      "returnTimeoutSeconds": 45
+    }
+  },
+  "mirror": {
+    "attribute": "비둔",
+    "character": 3,
+    "repeatMode": "select",
+    "weekdayAuto": false,
+    "weekdaySchedule": {
+      "0": {
+        "attr": "비둔",
+        "character": 3
+      },
+      "1": {
+        "attr": "비둔",
+        "character": 3
+      },
+      "2": {
+        "attr": "뇌둔",
+        "character": 4
+      },
+      "3": {
+        "attr": "뇌둔",
+        "character": 4
+      },
+      "4": {
+        "attr": "토둔",
+        "character": 1
+      },
+      "5": {
+        "attr": "토둔",
+        "character": 1
+      },
+      "6": {
+        "attr": "뇌둔",
+        "character": 4
+      }
+    },
+    "stopAfterClear": false
+  },
+  "combat": {
+    "useBigi": true,
+    "upperMissionMaxHp": 8600
+  },
+  "capture": {
+    "defaultIdleIntervalMs": 3000,
+    "postTapVerifyDelayMs": 500,
+    "method": "adb_png",
+    "transientPolicy": "per_state_not_global"
+  },
+  "safety": {
+    "onUnknownScreen": "needs_user_action",
+    "allowGameRestart": false,
+    "allowAdbAutoReconnect": false,
+    "enableStallRecovery": false
+  },
+  "nekoNinja": {
+    "startRequiresKnownScreen": true,
+    "allowUnknownScreenTaps": false,
+    "maxTenPullCycles": 0,
+    "note": "0 = run until manual stop; 10-pulls consume in-game currency; feature activates only when user selects neko_ninja mode"
+  },
+  "dateChange": {
+    "enabled": true,
+    "popupConfidenceCandidate": 0.78,
+    "followupCloseConfidenceCandidate": 0.82,
+    "homeStableFrames": 2,
+    "homeReturnTimeoutSeconds": 60,
+    "dailyRolloverHourLocal": 4,
+    "onUnsupportedMode": "needs_user_action",
+    "note": "Normal game UI flow, not game restart/recovery. 04:00 Windows local time -4 hours maps game date."
+  },
+  "events": {
+    "enabled": true,
+    "mode": "registered_modules_plus_safe_declarative",
+    "definitionsDirectory": "data/events",
+    "unrecognizedScreen": "needs_user_action",
+    "enableOnlyValidatedEvents": true,
+    "dedupeCooldownMs": 2000,
+    "eventSequenceTimeoutSeconds": 30
+  }
+}

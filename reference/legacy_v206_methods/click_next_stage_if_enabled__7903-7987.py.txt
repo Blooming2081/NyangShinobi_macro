@@ -1,0 +1,88 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L7903-L7987
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def click_next_stage_if_enabled(self, verify_after_clear=False):
+        if not self.click_next_stage:
+            self.log("다음 관문 클릭 안 함")
+            return False
+
+        if verify_after_clear:
+            before_screen = self._wait_completed_mission_entry_ready(
+                timeout=24.0
+            )
+            # 성공 확인 버튼에서 목록으로 돌아오는 직후의 첫 입력 소실을
+            # 피하면서 비교 기준 프레임도 완전히 안정화합니다.
+            time.sleep(0.35)
+            stable_screen = self._raw_screencap(max_cache_age=0.0)
+            if self._mission_entry_screen_ready(stable_screen):
+                before_screen = stable_screen
+            self.log(
+                "임무 완료 후 목록 화면 입력 안정화 확인 → "
+                "다음 관문 화살표 입력 및 카드 전환 확인"
+            )
+        else:
+            # 렌더링이 늦은 첫 캡처 한 장으로 즉시 오류 처리하지 않습니다.
+            before_screen = self._wait_completed_mission_entry_ready(timeout=12.0)
+
+        arrow_visible, arrow_pixels = self._mission_next_stage_arrow_visible(
+            before_screen
+        )
+        if not arrow_visible:
+            self.log(
+                "관문 진입 전 화면에 오른쪽 다음 관문 화살표 없음 "
+                f"/ 화살표 판정 {arrow_pixels}px → 클릭을 생략하고 바로 진입"
+            )
+            self.mark_progress("오른쪽 다음 관문 화살표 없음 확인")
+            return False
+
+        best_change = 0.0
+        for attempt in range(1, 4):
+            self.checkpoint()
+            self.scaled_click(
+                MISSION_NEXT_STAGE_RATIO[0],
+                MISSION_NEXT_STAGE_RATIO[1],
+                "오른쪽 다음 관문 화살표",
+            )
+            self.mark_progress(
+                f"임무 다음 관문 화살표 클릭 {attempt}회"
+            )
+
+            # 느린 기기의 카드 전환에도 최대 8초 대기. 2프레임에서 실제
+            # 카드 교체와 진입 화면을 확인한 뒤에만 다음 단계를 실행합니다.
+            verify_deadline = time.monotonic() + 8.0
+            confirmed_frames = 0
+            while time.monotonic() < verify_deadline:
+                self.checkpoint()
+                time.sleep(0.25)
+                after_screen = self._raw_screencap(max_cache_age=0.0)
+                changed, change_ratio = self._mission_stage_panel_change(
+                    before_screen, after_screen
+                )
+                best_change = max(best_change, change_ratio)
+                if changed and self._mission_entry_screen_ready(after_screen):
+                    confirmed_frames += 1
+                    if confirmed_frames >= 2:
+                        self.log(
+                            "다음 관문 카드 전환 확인 완료 "
+                            f"/ 변화율 {change_ratio:.3f} / 입력 {attempt}회"
+                        )
+                        self.mark_progress("임무 다음 관문 카드 전환 확인")
+                        return True
+                else:
+                    confirmed_frames = 0
+
+            if attempt < 3:
+                self.log(
+                    "다음 관문 카드가 바뀌지 않음 "
+                    f"/ 최고 변화율 {best_change:.3f} "
+                    f"→ 화살표 재입력 {attempt + 1}/3"
+                )
+
+        self.capture_learning_event(
+            "mission_next_stage_not_changed",
+            f"best_change={best_change:.4f}",
+        )
+        raise RuntimeError(
+            "다음 관문 화살표 3회 입력 후에도 관문 카드 전환이 확인되지 않아 "
+            "완료한 관문의 재진입을 차단했습니다."
+        )

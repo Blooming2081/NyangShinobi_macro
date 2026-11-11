@@ -1,0 +1,56 @@
+    def handle_date_changed_popup(self, raise_restart=True, screen=None):
+        """날짜 변경 팝업이 보이면 확인을 누르고 기존 작업을 계속합니다.
+
+        스킬 관련 딜레이 설정은 사용하지 않으며, 팝업 전용으로만 동작합니다.
+        """
+        # 팝업 표시 시각과 무관하게 Windows 현지 시각의 04:00 기준 주간표를
+        # 먼저 갱신합니다. 변경되지 않았다면 로그를 반복하지 않습니다.
+        self.apply_weekday_mirror_schedule()
+
+        template = NAV_TEMPLATES.get("date_changed")
+        if not template or not os.path.exists(template):
+            return False
+
+        # 같은 팝업을 짧은 시간에 여러 번 누르는 것을 방지합니다.
+        now = time.time()
+        if now - self.last_date_popup_click < 2.0:
+            return False
+
+        # 호출 루프가 이미 캡처한 화면이 있으면 반드시 공유합니다. 특히 거울
+        # 전투에서는 별도 adb screencap이 캡처 주기 제한을 우회하지 않게 합니다.
+        found, _, _, val = self.find_nav_image(
+            template,
+            threshold=0.78,
+            screen=screen,
+        )
+        if not found:
+            return False
+
+        self.log(f"날짜 변경 팝업 발견 / 일치율 {val:.3f} → 확인 클릭")
+        self.scaled_click(
+            DATE_CHANGED_OK_RATIO[0],
+            DATE_CHANGED_OK_RATIO[1],
+            "날짜 변경 확인",
+        )
+        self.last_date_popup_click = time.time()
+        self.mark_progress("날짜 변경 팝업 확인")
+
+        # 팝업이 닫히는 시간만 별도로 기다립니다.
+        for _ in range(12):
+            self.checkpoint()
+            time.sleep(0.1)
+
+        if self.mode == "음양의 거울":
+            self.apply_weekday_mirror_schedule(
+                reason="날짜 변경 팝업 요일 자동 설정",
+                force_log=True,
+            )
+        else:
+            self.log("날짜 변경 → 기존 일반 임무 설정으로 다시 진입합니다.")
+
+        # 실행 중 발견하면 기존 루프를 빠져나와 홈에서 다시 시작합니다.
+        # 시작 직후 발견한 경우에는 이미 홈이므로 현재 worker에서 그대로 이어갑니다.
+        if raise_restart:
+            raise DateChangedRestart()
+        return True
+

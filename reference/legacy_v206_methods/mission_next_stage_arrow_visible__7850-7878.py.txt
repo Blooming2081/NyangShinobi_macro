@@ -1,0 +1,32 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L7850-L7878
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @staticmethod
+    @opencv_serialized
+    def _mission_next_stage_arrow_visible(screen):
+        """480x1320 관문 목록의 오른쪽 청록색 화살표 존재 여부를 판정합니다."""
+        screen = MacroEngine._normalize_mission_screen(screen)
+        if screen is None:
+            return False, 0
+        arrow_roi = screen[560:680, 405:480]
+        hsv = cv2.cvtColor(arrow_roi, cv2.COLOR_BGR2HSV)
+        cyan_mask = np.where(
+            (hsv[:, :, 0] >= 75)
+            & (hsv[:, :, 0] <= 115)
+            & (hsv[:, :, 1] >= 90)
+            & (hsv[:, :, 2] >= 120),
+            255,
+            0,
+        ).astype(np.uint8)
+        component_count, _, stats, _ = cv2.connectedComponentsWithStats(
+            cyan_mask, connectivity=8
+        )
+        largest_component = (
+            int(stats[1:, cv2.CC_STAT_AREA].max())
+            if component_count > 1 else 0
+        )
+        return (
+            largest_component
+            >= MISSION_NEXT_STAGE_ARROW_MIN_COMPONENT_PIXELS,
+            largest_component,
+        )

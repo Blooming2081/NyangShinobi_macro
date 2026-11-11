@@ -1,0 +1,103 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L11709-L11808
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def _select_mirror_cards_fast_and_verify(self, centers, initial_screen):
+        """필요한 카드만 개별 입력하고 한 프레임으로 전체 선택을 확인합니다."""
+        verify_screen = initial_screen
+        best_scores = {int(center_x): 0.0 for center_x in centers}
+        # 일부 분홍/보라 카드(예: 염폭술)는 선택되어도 초록 외곽선이
+        # 표시되지 않아 기존 검증값이 항상 0.000입니다. 이 카드를 다시
+        # 누르면 정상 선택을 오히려 해제하므로, 성공적으로 입력한 뒤에도
+        # 초록 픽셀이 전혀 없는 좌표는 재클릭하지 않고 입력 전달을
+        # 선택 확인으로 사용합니다. 초록 반응이 조금이라도 있는 일반
+        # 카드는 기존처럼 임계값까지 재검증합니다.
+        input_delivered = set()
+        non_green_selected = set()
+        for attempt in range(2):
+            self.checkpoint()
+            missing_centers = []
+            for center_x in centers:
+                selected, score = self._is_mirror_card_selected(
+                    verify_screen, center_x
+                )
+                best_scores[int(center_x)] = max(
+                    best_scores[int(center_x)], score
+                )
+                if (
+                    not selected
+                    and int(center_x) in input_delivered
+                    and score <= 0.003
+                ):
+                    non_green_selected.add(int(center_x))
+                    continue
+                if not selected and int(center_x) not in non_green_selected:
+                    missing_centers.append(int(center_x))
+            if not missing_centers:
+                if not input_delivered:
+                    self.log(
+                        "거울 카드가 첫 프레임부터 선택된 것으로 판정되어 "
+                        "카드 탭 생략 / "
+                        + ", ".join(
+                            f"{int(center_x)}:{best_scores[int(center_x)]:.3f}"
+                            for center_x in centers
+                        )
+                    )
+                if non_green_selected:
+                    centers_text = ", ".join(
+                        str(center_x) for center_x in sorted(non_green_selected)
+                    )
+                    self.log(
+                        "거울 카드 비표준 선택 테두리 확인 → 재클릭 없이 "
+                        f"입력 성공 기준으로 확인 진행 / 좌표 {centers_text}"
+                    )
+                return True
+
+            # 이미 선택된 카드는 건드리지 않고 누락된 카드만 개별 ADB
+            # 명령으로 전송합니다. 0.05초에서는 누락이 재현되어 0.10초를
+            # 최저값으로 사용하고, 전체 화면 확인은 입력 후 한 번만 수행합니다.
+            self._run_mirror_tap_batch(
+                tuple((center_x, 551) for center_x in missing_centers),
+                tap_interval=MIRROR_CARD_TAP_INTERVAL_SECONDS,
+            )
+            input_delivered.update(missing_centers)
+            if self.stop_event.wait(0.05):
+                return False
+            verify_screen = self._raw_screencap(max_cache_age=0.0)
+
+        missing_after_retry = []
+        for center_x in centers:
+            selected, score = self._is_mirror_card_selected(
+                verify_screen, center_x
+            )
+            best_scores[int(center_x)] = max(
+                best_scores[int(center_x)], score
+            )
+            if (
+                not selected
+                and int(center_x) in input_delivered
+                and score <= 0.003
+            ):
+                non_green_selected.add(int(center_x))
+                continue
+            if not selected and int(center_x) not in non_green_selected:
+                missing_after_retry.append(int(center_x))
+        if not missing_after_retry:
+            if non_green_selected:
+                centers_text = ", ".join(
+                    str(center_x) for center_x in sorted(non_green_selected)
+                )
+                self.log(
+                    "거울 카드 비표준 선택 테두리 확인 → 재클릭 없이 "
+                    f"입력 성공 기준으로 확인 진행 / 좌표 {centers_text}"
+                )
+            return True
+
+        score_text = ", ".join(
+            f"{center_x}:{best_scores[center_x]:.3f}"
+            for center_x in missing_after_retry
+        )
+        self.log(
+            "거울 카드 선택 누락 → 확인 버튼을 누르지 않고 누락 카드만 "
+            f"다시 검사합니다. / {score_text}"
+        )
+        return False

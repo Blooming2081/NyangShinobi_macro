@@ -1,0 +1,138 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L11543-L11677
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @staticmethod
+    @opencv_serialized
+    def _detect_mirror_special_card_position(screen, card_count):
+        """캐릭터와 속성에 관계없이 거울의 보라색 비기 카드 위치를 찾습니다.
+
+        얼굴 이미지 자체를 템플릿으로 고정하지 않고 ① 카드 전면의 보라색
+        배경, ② 인물 일러스트가 만드는 색상·윤곽 구조, ③ 일반 카드의 검은
+        비용 표시 영역 부재를 함께 판정합니다. 세 특징 중 둘 이상이면서
+        보라색 배경이 실제로 확인된 후보만 인정해 일반 인법의 보라색 아이콘을
+        비기 카드로 오인하지 않게 합니다.
+        """
+        screen = MacroEngine._normalize_mission_screen(screen)
+        centers = MIRROR_CARD_LAYOUT_CENTERS.get(card_count)
+        if screen is None or not centers:
+            return None, 0.0
+
+        candidates = []
+        for index, center_x in enumerate(centers):
+            left = max(0, center_x - 52)
+            right = min(screen.shape[1], center_x + 53)
+            # 카드 등장 애니메이션과 해상도 보정에 따라 위아래로 약 20px
+            # 흔들려도 카드 전체 배경을 놓치지 않도록 기존보다 넓게 봅니다.
+            patch = screen[380:720, left:right]
+            if patch.size == 0:
+                continue
+
+            hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+            gray = cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY)
+
+            # 전체 카드가 보라색인지를 봅니다. 중앙 아이콘만 보라색인 일반
+            # 인법이 통과하지 않도록 카드 좌우 배경 띠의 비율도 별도 확인합니다.
+            hsv_purple = (
+                (hsv[:, :, 0] >= 112)
+                & (hsv[:, :, 0] <= 179)
+                & (hsv[:, :, 1] >= 28)
+                & (hsv[:, :, 2] >= 42)
+            )
+            # 이펙트·밝기 변화로 HSV 채도가 낮아진 프레임도 BGR 채널 관계로
+            # 보완합니다. 회색 일반 카드에서는 R/B가 G보다 동시에 높지 않습니다.
+            blue = patch[:, :, 0].astype(np.int16)
+            green = patch[:, :, 1].astype(np.int16)
+            red = patch[:, :, 2].astype(np.int16)
+            channel_purple = (
+                (red >= green + 10)
+                & (blue >= green + 4)
+                & (np.maximum(red, blue) >= 58)
+            )
+            purple = hsv_purple | channel_purple
+            # 일반 회색 카드의 어두운 남색 배경도 HSV상 보라색으로 잡힙니다.
+            # 비기 카드는 제목·아이콘 아래의 카드 전면까지 밝은 보라색으로
+            # 채워지므로 이 고정 내부 영역을 먼저 확인합니다.
+            lower_fill = hsv[180:295, 14:max(15, patch.shape[1] - 14)]
+            bright_purple_fill = float(np.mean(
+                (lower_fill[:, :, 0] >= 112)
+                & (lower_fill[:, :, 0] <= 179)
+                & (lower_fill[:, :, 1] >= 45)
+                & (lower_fill[:, :, 2] >= 120)
+            ))
+            if bright_purple_fill < 0.16:
+                continue
+            side_width = max(8, patch.shape[1] // 5)
+            side_y1 = min(35, patch.shape[0])
+            side_y2 = max(side_y1 + 1, patch.shape[0] - 15)
+            side_purple_ratio = float(np.mean(np.concatenate((
+                purple[side_y1:side_y2, :side_width].reshape(-1),
+                purple[side_y1:side_y2, -side_width:].reshape(-1),
+            ))))
+            side_hsv = np.concatenate((
+                hsv[side_y1:side_y2, :side_width].reshape(-1, 3),
+                hsv[side_y1:side_y2, -side_width:].reshape(-1, 3),
+            ))
+            side_color_ratio = float(np.mean(
+                (side_hsv[:, 1] >= 25) & (side_hsv[:, 2] >= 42)
+            ))
+            purple_ratio = float(np.mean(purple))
+            purple_background = (
+                purple_ratio >= 0.060
+                and side_purple_ratio >= 0.050
+                and side_color_ratio >= 0.10
+            )
+
+            # 캐릭터가 달라져도 인물 일러스트의 채도와 윤곽 밀도는 유지됩니다.
+            portrait = hsv[45:210, 8:max(9, patch.shape[1] - 8)]
+            portrait_gray = gray[45:210, 8:max(9, patch.shape[1] - 8)]
+            portrait_edges = cv2.Canny(portrait_gray, 35, 115)
+            portrait_color_ratio = float(np.mean(
+                (portrait[:, :, 1] >= 45) & (portrait[:, :, 2] >= 65)
+            ))
+            portrait_edge_ratio = float(np.mean(portrait_edges > 0))
+            portrait_structure = (
+                portrait_color_ratio >= 0.10 and portrait_edge_ratio >= 0.060
+            )
+
+            # 일반 카드에는 아이콘 아래 검은 비용 캡슐과 녹색 숫자가 있지만
+            # 비기 카드에는 이 영역이 없습니다.
+            cost_hsv = hsv[135:225, 10:max(11, patch.shape[1] - 10)]
+            cost_gray = gray[135:225, 10:max(11, patch.shape[1] - 10)]
+            green_cost_ratio = float(np.mean(
+                (cost_hsv[:, :, 0] >= 32)
+                & (cost_hsv[:, :, 0] <= 95)
+                & (cost_hsv[:, :, 1] >= 75)
+                & (cost_hsv[:, :, 2] >= 80)
+            ))
+            dark_cost_ratio = float(np.mean(cost_gray <= 38))
+            no_general_cost = (
+                green_cost_ratio <= 0.018 and dark_cost_ratio <= 0.38
+            )
+
+            feature_count = sum((
+                purple_background,
+                portrait_structure,
+                no_general_cost,
+            ))
+            score = (
+                min(1.0, purple_ratio / 0.18) * 0.40
+                + min(1.0, side_purple_ratio / 0.16) * 0.30
+                + min(1.0, side_color_ratio / 0.32) * 0.10
+                + min(1.0, portrait_edge_ratio / 0.14) * 0.10
+                + (0.10 if no_general_cost else 0.0)
+            )
+            candidates.append((score, index, feature_count, purple_background))
+
+        if not candidates:
+            return None, 0.0
+        candidates.sort(reverse=True)
+        best_score, best_index, feature_count, purple_background = candidates[0]
+        second_score = candidates[1][0] if len(candidates) > 1 else 0.0
+        if (
+            purple_background
+            and feature_count >= 2
+            and best_score >= 0.42
+            and (best_score - second_score >= 0.025 or best_score >= 0.62)
+        ):
+            return best_index, float(best_score)
+        return None, float(best_score)

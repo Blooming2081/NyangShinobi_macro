@@ -1,0 +1,65 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L10492-L10553
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def select_left_mission_skill(self):
+        # 최초 진입에서도 다시뽑기 버튼 하나만 기다리지 않습니다. 버튼 이미지가
+        # 가려지거나 비활성화돼도 3장 카드 배치가 보이면 같은 선택 화면입니다.
+        deadline = time.time() + 45.0
+        while time.time() < deadline:
+            self.checkpoint()
+            screen = self.adb_screencap()
+            if screen is None:
+                time.sleep(self.skill_detect_interval)
+                continue
+
+            found_reroll, _, _, reroll_val = self.find_nav_image_near(
+                NAV_TEMPLATES["reroll"],
+                MISSION_REROLL_CENTER_RATIO,
+                MISSION_REROLL_TOLERANCE_RATIO,
+                threshold=0.62,
+                screen=screen,
+            )
+            if found_reroll:
+                self.log(
+                    f"최초 스킬 화면의 다시뽑기 발견 / 일치율 {reroll_val:.3f} "
+                    "→ 스킬 우선순위 검사"
+                )
+                return self.select_mission_skill(screen=screen)
+
+            found_layout, layout_score = self.detect_mission_card_layout(screen)
+            acquired_cards = False
+            acquired_score = 0.0
+            mixed_acquired_cards = False
+            mixed_acquired_score = 0.0
+            if self.mission_rank == "극의 임무":
+                acquired_cards, acquired_score = (
+                    self.detect_extreme_three_blue_acquired_cards(screen)
+                )
+                mixed_acquired_cards, mixed_acquired_score = (
+                    self.detect_extreme_mixed_acquired_cards(screen)
+                )
+            if found_layout or acquired_cards or mixed_acquired_cards:
+                if acquired_cards:
+                    self.log(
+                        "다시뽑기 없는 극의 습득 카드 3장 화면 감지 "
+                        f"/ 판정값 {acquired_score:.3f} → 무작위 선택"
+                    )
+                elif mixed_acquired_cards:
+                    self.log(
+                        "다시뽑기 없는 극의 혼합 습득 카드 화면 감지 "
+                        f"/ 판정값 {mixed_acquired_score:.3f} → 우선순위 검사"
+                    )
+                else:
+                    self.log(
+                        "다시뽑기 미감지지만 최초 스킬 카드 화면 감지 "
+                        f"/ 판정값 {layout_score:.3f} → 스킬 우선순위 검사"
+                    )
+                self.mark_progress("최초 임무 스킬 카드 배치 감지")
+                return self.select_mission_skill(screen=screen)
+            time.sleep(self.skill_detect_interval)
+
+        self.log(
+            "최초 스킬 화면 대기 시간 초과: 다시뽑기와 카드 배치를 모두 "
+            "확인하지 못함 → 기존 왼쪽 선택을 보류하고 전투 감시로 전환"
+        )
+        return None

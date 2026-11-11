@@ -1,0 +1,159 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L11163-L11318
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def mission_worker_loop(
+        self, resume_current_battle=False, resume_in_progress=False
+    ):
+        need_enter = not resume_current_battle
+        resume_without_initial_card = bool(resume_in_progress)
+        if resume_current_battle:
+            if resume_without_initial_card:
+                self.log("재개된 임무 화면부터 전투 감시를 바로 시작합니다.")
+            else:
+                self.log("임무 스킬카드 화면부터 전투 감시를 바로 시작합니다.")
+        while not self.stop_event.is_set():
+            try:
+                if need_enter:
+                    resumed_existing_mission = self.enter_mission_from_home()
+                    need_enter = False
+                    resume_without_initial_card = resumed_existing_mission
+                    self.mark_progress("일반 임무 재진입 완료")
+
+                result = self.run_one_mission(
+                    resume_in_progress=resume_without_initial_card
+                )
+                resume_without_initial_card = False
+
+                if result == "restarted":
+                    self.log("재시작 후 홈 화면에서 일반 임무를 다시 진입합니다.")
+                    need_enter = True
+                    continue
+
+                if result == "failed":
+                    self.mission_consecutive_failures = next_fail_streak(
+                        self.mission_consecutive_failures, succeeded=False)
+                    self.log(f"연속 임무 실패: {self.mission_consecutive_failures} / "
+                             f"{self.failure_to_mirror_threshold}회")
+                    self.handle_mission_level_up_popup(timeout=3.0)
+                    if (self.failure_to_mirror_enabled and
+                            self.mission_consecutive_failures >= self.failure_to_mirror_threshold):
+                        self.recover_pending_mission_memory_restart(
+                            next_target="설정된 거울")
+                        self.log("연속 임무 실패 기준 도달 → 팝업 없이 거울로 전환합니다.")
+                        return "switch_to_mirror_after_failure"
+                    # A lost battle goes back to home; enter the same mission again.
+                    need_enter = True
+                    self.log("연속 실패 기준 미달 또는 거울 전환 해제 → 일반 임무 재도전")
+                    continue
+
+                if result == "retry_extreme_without_bigi":
+                    self.handle_mission_level_up_popup(timeout=3.0)
+                    if self.recover_pending_mission_memory_restart(
+                        next_target="극의 임무 재도전"
+                    ):
+                        need_enter = True
+                        continue
+                    self.log(
+                        "극의 임무에서 비기를 사용하지 못하고 실패 "
+                        "→ 홈 화면으로 복귀한 뒤 극의 임무를 다시 진입합니다."
+                    )
+                    retry_screen = self._raw_screencap()
+                    home_ready = self._home_screen_ready(retry_screen)
+                    if home_ready:
+                        self.log("극의 임무 재도전 전 게임 홈 화면 확인 완료")
+                    else:
+                        home_ready = self._startup_back_to_home(
+                            "극의 임무 실패 후 홈 복귀",
+                            destination_label="설정된 극의 임무",
+                        )
+                    if not home_ready:
+                        self.log(
+                            "뒤로가기로 홈 복귀 실패 → 게임을 복구한 뒤 "
+                            "극의 임무를 다시 진입합니다."
+                        )
+                        self.game_package = GAME_PACKAGE
+                        if not self.restart_game("극의 임무 실패 후 홈 복귀"):
+                            self._launch_bluestacks_and_game()
+                    need_enter = True
+                    continue
+
+                if result == "success":
+                    self.mission_consecutive_failures = next_fail_streak(
+                        self.mission_consecutive_failures, succeeded=True)
+                    self.log("임무 성공 → 연속 실패 횟수 0회로 초기화")
+                    self.handle_mission_level_up_popup(timeout=3.0)
+
+                if self.stop_after_clear:
+                    self.log("일반 임무 클리어 → 클리어 시 자동 정지 옵션에 따라 종료합니다.")
+                    self.stop_event.set()
+                    return
+
+                if self.recover_pending_mission_memory_restart():
+                    need_enter = True
+                    continue
+
+                # 성공 후 임무 목록에서, 관문으로 진입을 누르기 직전에 옵션을 적용합니다.
+                self.click_next_stage_if_enabled(verify_after_clear=True)
+                self.select_configured_mission_character_preset()
+                self.wait_nav_and_click_until_gone(
+                    NAV_TEMPLATES["mission_enter"],
+                    "다음 관문으로 진입",
+                    0.62,
+                    timeout=60,
+                    verify_delay=5.0,
+                    max_clicks=5,
+                    detect_mission_energy_empty=True,
+                    next_screen_ready=self._mission_combat_screen_ready,
+                )
+                self.wait_for_mission_energy_popup_after_entry()
+
+            except MissionEnergyExhausted:
+                return "switch_to_mirror"
+            except DateChangedRestart:
+                self.log("날짜 변경 처리 완료 → 홈 갱신 후 기존 일반 임무를 다시 시작합니다.")
+                self.wait_for_home_refresh_after_date_change()
+                need_enter = True
+                continue
+            except MacroStopped:
+                raise
+            except Exception as exc:
+                if is_opencv_out_of_memory(exc):
+                    self.log(
+                        "OpenCV 메모리 부족 감지 → 홈 재진입을 하지 않고 "
+                        "임시 영상 메모리를 회수한 뒤 현재 임무 화면을 계속 감시합니다."
+                    )
+                    gc.collect()
+                    if not need_enter:
+                        resume_without_initial_card = True
+                    if self.stop_event.wait(0.25):
+                        return
+                    continue
+                if self._is_adb_connection_error(exc):
+                    if not self.recover_adb_connection("일반 임무 진행 중"):
+                        raise RuntimeError(
+                            "BlueStacks ADB 자동 복구에 실패했습니다."
+                        ) from exc
+
+                    # 연결 복구 직후 기존 진행 상태를 추측하지 않고 현재 UI를 다시 봅니다.
+                    if self.detect_skill_card_screen_at_start():
+                        self.log("ADB 복구 후 임무 스킬카드 확인 → 현재 전투를 이어갑니다.")
+                        need_enter = False
+                        resume_without_initial_card = False
+                    elif self.handle_mission_resume_popup():
+                        self.log("ADB 복구 후 임무 재개 완료 → 현재 전투를 이어갑니다.")
+                        need_enter = False
+                        resume_without_initial_card = True
+                    else:
+                        self.log("ADB 복구 후 스킬카드 없음 → 홈 화면 복구 후 재진입합니다.")
+                        self.ensure_home_before_start()
+                        need_enter = True
+                    self.mark_progress("일반 임무 ADB 연결 복구")
+                    continue
+
+                self.signal_common_failure(f"임무 오류: {exc}")
+                self.log(f"일반 임무 재진입 오류: {exc} → 홈에서 다시 시도합니다.")
+                self.capture_learning_event("mission_error", str(exc))
+                need_enter = True
+                self.mark_progress("일반 임무 재진입 재시도")
+                if self.stop_event.wait(2.0):
+                    return

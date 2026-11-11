@@ -1,0 +1,111 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L8177-L8284
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def select_mission_preset_number(self, preset_number):
+        """표시 이름과 무관하게 목록의 1~10번째 프리셋을 선택합니다."""
+        preset_number = int(preset_number)
+        if preset_number < 1 or preset_number > 10:
+            raise ValueError("임무 프리셋 번호는 1~10이어야 합니다.")
+
+        def mission_enter_visible(timeout):
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                self.checkpoint()
+                screen = self._raw_screencap(max_cache_age=0.0)
+                if self._mission_entry_screen_ready(screen):
+                    return True
+                time.sleep(0.10)
+            return False
+
+        for attempt in range(1, 3):
+            if attempt > 1:
+                self.scaled_click(
+                    40 / 480, 900 / 1320, "프리셋 목록 바깥 빈 영역"
+                )
+                time.sleep(0.20)
+            self.log(
+                f"임무 캐릭터 프리셋 {preset_number}번 선택"
+                + (" 재시도" if attempt > 1 else "")
+            )
+            # First tap opens the menu, second tap chooses an item: these are
+            # DIFFERENT buttons. Skip opening a menu already present.
+            initial_screen = self._raw_screencap(max_cache_age=0.0)
+            if initial_screen is None:
+                raise RuntimeError('프리셋 슬롯 좌표 계산용 화면 캡처 실패')
+            if not self._mission_preset_list_open(initial_screen):
+                height, width = initial_screen.shape[:2]
+                slot_x = round(width * LOWER_MISSION_CHARACTER_SLOT_RATIO[0])
+                slot_y = round(height * LOWER_MISSION_CHARACTER_SLOT_RATIO[1])
+                self.log(f'프리셋 목록 열기 / 실제 화면 좌표 {slot_x}, {slot_y}')
+                # Keep the existing scaling/click interface for compatibility.
+                self.scaled_click(
+                    LOWER_MISSION_CHARACTER_SLOT_RATIO[0],
+                    LOWER_MISSION_CHARACTER_SLOT_RATIO[1], '프리셋 목록 열기')
+            if not self._wait_mission_preset_list_state(True, timeout=3.0):
+                self.log("프리셋 목록이 실제로 열리지 않음 → 슬롯 입력 재시도")
+                continue
+            screen = self._raw_screencap(max_cache_age=0.0)
+            screen_h, screen_w = screen.shape[:2]
+            top_x = int(
+                screen_w * MISSION_PRESET_SCROLL_TOP_START_RATIO[0]
+            )
+            top_start_y = int(
+                screen_h * MISSION_PRESET_SCROLL_TOP_START_RATIO[1]
+            )
+            top_end_y = int(
+                screen_h * MISSION_PRESET_SCROLL_TOP_END_RATIO[1]
+            )
+            # 이전 실행에서 아래쪽 프리셋이 선택돼 있어도 항상 1번부터 같은
+            # 위치를 계산할 수 있도록 목록을 충분히 맨 위로 되돌립니다.
+            for _ in range(3):
+                self._run_preset_swipe_checked(
+                    top_x, top_start_y, top_end_y, 180
+                )
+                time.sleep(0.15)
+
+            visible_row = preset_number
+            if preset_number > MISSION_PRESET_VISIBLE_ROWS:
+                # 부분 스크롤 거리를 행 수로 환산하면 Android 목록의 관성·스냅
+                # 때문에 실제 이동이 한 행 짧아질 수 있습니다(8번 요청 시 7번
+                # 선택 사례). 6~10번은 항상 목록을 끝까지 내린 뒤 마지막 화면의
+                # 1~5번째 행으로 환산해 선택하면 프리셋 이름과 스크롤 오차에
+                # 영향을 받지 않습니다.
+                visible_row = preset_number - MISSION_PRESET_VISIBLE_ROWS
+                scroll_start_y = int(
+                    screen_h * MISSION_PRESET_SCROLL_UP_START_RATIO[1]
+                )
+                scroll_end_y = int(
+                    screen_h * MISSION_PRESET_SCROLL_TOP_START_RATIO[1]
+                )
+                for _ in range(3):
+                    self._run_preset_swipe_checked(
+                        top_x, scroll_start_y, scroll_end_y, 220
+                    )
+                    time.sleep(0.15)
+                self.log(
+                    f"프리셋 {preset_number}번 선택을 위해 목록 최하단 정렬 "
+                    f"→ 마지막 화면 {visible_row}번째 행"
+                )
+                time.sleep(0.25)
+
+            self._wait_preset_scroll_settled(timeout=3.0)
+            row_y_ratio = (
+                MISSION_PRESET_FIRST_ROW_RATIO[1]
+                + (visible_row - 1) * MISSION_PRESET_ROW_SPACING_RATIO
+            )
+            self.scaled_click(
+                MISSION_PRESET_FIRST_ROW_RATIO[0],
+                row_y_ratio,
+                f"캐릭터 프리셋 {preset_number}번",
+            )
+            if mission_enter_visible(3.5):
+                self.log(f"캐릭터 프리셋 {preset_number}번 목록 닫힘 확인 완료")
+                self.mark_progress(f"임무 캐릭터 프리셋 {preset_number}번 선택")
+                return
+            self.log(
+                f"프리셋 {preset_number}번 선택 후 목록 닫힘 미확인 "
+                f"→ 재시도 {attempt}/2"
+            )
+        raise RuntimeError(
+            f"캐릭터 프리셋 {preset_number}번 선택 후 목록 닫힘을 확인하지 못했습니다."
+        )

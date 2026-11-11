@@ -1,0 +1,268 @@
+{
+  "source": "NyangShinobiMacro_v2.0.6 (2).zip/app/run_gui.py",
+  "kind": "read_only_reference_excerpts",
+  "methods": [
+    {
+      "method": "detect_current_mission_rank",
+      "original": "app/run_gui.py",
+      "firstLine": 7750,
+      "lastLine": 7787,
+      "excerpt": "reference/legacy_v206_methods/detect_current_mission_rank__7750-7787.py.txt"
+    },
+    {
+      "method": "ensure_mission_rank",
+      "original": "app/run_gui.py",
+      "firstLine": 7789,
+      "lastLine": 7826,
+      "excerpt": "reference/legacy_v206_methods/ensure_mission_rank__7789-7826.py.txt"
+    },
+    {
+      "method": "_mission_next_stage_arrow_visible",
+      "original": "app/run_gui.py",
+      "firstLine": 7850,
+      "lastLine": 7878,
+      "excerpt": "reference/legacy_v206_methods/mission_next_stage_arrow_visible__7850-7878.py.txt"
+    },
+    {
+      "method": "_mission_stage_panel_change",
+      "original": "app/run_gui.py",
+      "firstLine": 7880,
+      "lastLine": 7901,
+      "excerpt": "reference/legacy_v206_methods/mission_stage_panel_change__7880-7901.py.txt"
+    },
+    {
+      "method": "click_next_stage_if_enabled",
+      "original": "app/run_gui.py",
+      "firstLine": 7903,
+      "lastLine": 7987,
+      "excerpt": "reference/legacy_v206_methods/click_next_stage_if_enabled__7903-7987.py.txt"
+    },
+    {
+      "method": "select_mission_preset_number",
+      "original": "app/run_gui.py",
+      "firstLine": 8177,
+      "lastLine": 8284,
+      "excerpt": "reference/legacy_v206_methods/select_mission_preset_number__8177-8284.py.txt"
+    },
+    {
+      "method": "select_configured_mission_character_preset",
+      "original": "app/run_gui.py",
+      "firstLine": 8286,
+      "lastLine": 8317,
+      "excerpt": "reference/legacy_v206_methods/select_configured_mission_character_preset__8286-8317.py.txt"
+    },
+    {
+      "method": "enter_mission_from_home",
+      "original": "app/run_gui.py",
+      "firstLine": 8319,
+      "lastLine": 8371,
+      "excerpt": "reference/legacy_v206_methods/enter_mission_from_home__8319-8371.py.txt"
+    },
+    {
+      "method": "load_priority_templates",
+      "original": "app/run_gui.py",
+      "firstLine": 8436,
+      "lastLine": 8499,
+      "excerpt": "reference/legacy_v206_methods/load_priority_templates__8436-8499.py.txt"
+    },
+    {
+      "method": "detect_mission_card_layout",
+      "original": "app/run_gui.py",
+      "firstLine": 4498,
+      "lastLine": 4605,
+      "excerpt": "reference/legacy_v206_methods/detect_mission_card_layout__4498-4605.py.txt"
+    },
+    {
+      "method": "select_mission_skill",
+      "original": "app/run_gui.py",
+      "firstLine": 10250,
+      "lastLine": 10490,
+      "excerpt": "reference/legacy_v206_methods/select_mission_skill__10250-10490.py.txt"
+    },
+    {
+      "method": "select_left_mission_skill",
+      "original": "app/run_gui.py",
+      "firstLine": 10492,
+      "lastLine": 10553,
+      "excerpt": "reference/legacy_v206_methods/select_left_mission_skill__10492-10553.py.txt"
+    },
+    {
+      "method": "run_one_mission",
+      "original": "app/run_gui.py",
+      "firstLine": 10555,
+      "lastLine": 11161,
+      "excerpt": "reference/legacy_v206_methods/run_one_mission__10555-11161.py.txt"
+    },
+    {
+      "method": "mission_worker_loop",
+      "original": "app/run_gui.py",
+      "firstLine": 11163,
+      "lastLine": 11318,
+      "excerpt": "reference/legacy_v206_methods/mission_worker_loop__11163-11318.py.txt"
+    },
+    {
+      "method": "character_click",
+      "original": "app/run_gui.py",
+      "firstLine": 7185,
+      "lastLine": 7210,
+      "excerpt": "reference/legacy_v206_methods/character_click__7185-7210.py.txt"
+    },
+    {
+      "method": "open_trial_screen_from_home",
+      "original": "app/run_gui.py",
+      "firstLine": 7212,
+      "lastLine": 7285,
+      "excerpt": "reference/legacy_v206_methods/open_trial_screen_from_home__7212-7285.py.txt"
+    },
+    {
+      "method": "enter_from_home",
+      "original": "app/run_gui.py",
+      "firstLine": 7358,
+      "lastLine": 7389,
+      "excerpt": "reference/legacy_v206_methods/enter_from_home__7358-7389.py.txt"
+    },
+    {
+      "method": "step4",
+      "original": "app/run_gui.py",
+      "firstLine": 11321,
+      "lastLine": 11370,
+      "excerpt": "reference/legacy_v206_methods/step4__11321-11370.py.txt"
+    },
+    {
+      "method": "_detect_mirror_card_layout",
+      "original": "app/run_gui.py",
+      "firstLine": 11372,
+      "lastLine": 11541,
+      "excerpt": "reference/legacy_v206_methods/detect_mirror_card_layout__11372-11541.py.txt"
+    },
+    {
+      "method": "_detect_mirror_special_card_position",
+      "original": "app/run_gui.py",
+      "firstLine": 11543,
+      "lastLine": 11677,
+      "excerpt": "reference/legacy_v206_methods/detect_mirror_special_card_position__11543-11677.py.txt"
+    },
+    {
+      "method": "_is_mirror_card_selected",
+      "original": "app/run_gui.py",
+      "firstLine": 11679,
+      "lastLine": 11707,
+      "excerpt": "reference/legacy_v206_methods/is_mirror_card_selected__11679-11707.py.txt"
+    },
+    {
+      "method": "_select_mirror_cards_fast_and_verify",
+      "original": "app/run_gui.py",
+      "firstLine": 11709,
+      "lastLine": 11808,
+      "excerpt": "reference/legacy_v206_methods/select_mirror_cards_fast_and_verify__11709-11808.py.txt"
+    },
+    {
+      "method": "_detect_mirror_bigi_hud_face",
+      "original": "app/run_gui.py",
+      "firstLine": 11810,
+      "lastLine": 11897,
+      "excerpt": "reference/legacy_v206_methods/detect_mirror_bigi_hud_face__11810-11897.py.txt"
+    },
+    {
+      "method": "_dismiss_mirror_failure",
+      "original": "app/run_gui.py",
+      "firstLine": 11899,
+      "lastLine": 11933,
+      "excerpt": "reference/legacy_v206_methods/dismiss_mirror_failure__11899-11933.py.txt"
+    },
+    {
+      "method": "_use_mirror_bigi_and_verify",
+      "original": "app/run_gui.py",
+      "firstLine": 11935,
+      "lastLine": 12086,
+      "excerpt": "reference/legacy_v206_methods/use_mirror_bigi_and_verify__11935-12086.py.txt"
+    },
+    {
+      "method": "step5_6_loop",
+      "original": "app/run_gui.py",
+      "firstLine": 12129,
+      "lastLine": 12675,
+      "excerpt": "reference/legacy_v206_methods/step5_6_loop__12129-12675.py.txt"
+    },
+    {
+      "method": "_try_extreme_wave19_reroll",
+      "original": "app/run_gui.py",
+      "firstLine": 10149,
+      "lastLine": 10177,
+      "excerpt": "reference/legacy_v206_methods/try_extreme_wave19_reroll__10149-10177.py.txt"
+    },
+    {
+      "method": "_mission_special_bigi_monitor_impl",
+      "original": "app/run_gui.py",
+      "firstLine": 3059,
+      "lastLine": 3589,
+      "excerpt": "reference/legacy_v206_methods/mission_special_bigi_monitor_impl__3059-3589.py.txt"
+    },
+    {
+      "method": "find_mirror_skill_confirm",
+      "original": "app/run_gui.py",
+      "firstLine": 6861,
+      "lastLine": 6871,
+      "excerpt": "reference/legacy_v206_methods/find_mirror_skill_confirm__6861-6871.py.txt"
+    },
+    {
+      "method": "find_nav_image_near",
+      "original": "app/run_gui.py",
+      "firstLine": 6793,
+      "lastLine": 6859,
+      "excerpt": "reference/legacy_v206_methods/find_nav_image_near__6793-6859.py.txt"
+    },
+    {
+      "method": "click_mission_success_confirmation",
+      "original": "app/run_gui.py",
+      "firstLine": 4002,
+      "lastLine": 4116,
+      "excerpt": "reference/legacy_v206_methods/click_mission_success_confirmation__4002-4116.py.txt"
+    },
+    {
+      "method": "detect_neko_ninja_summon",
+      "original": "app/run_gui.py",
+      "firstLine": 12677,
+      "lastLine": 12694,
+      "excerpt": "reference/legacy_v206_methods/detect_neko_ninja_summon__12677-12694.py.txt"
+    },
+    {
+      "method": "detect_neko_ninja_result",
+      "original": "app/run_gui.py",
+      "firstLine": 12696,
+      "lastLine": 12711,
+      "excerpt": "reference/legacy_v206_methods/detect_neko_ninja_result__12696-12711.py.txt"
+    },
+    {
+      "method": "neko_ninja_summon_loop",
+      "original": "app/run_gui.py",
+      "firstLine": 12713,
+      "lastLine": 12730,
+      "excerpt": "reference/legacy_v206_methods/neko_ninja_summon_loop__12713-12730.py.txt"
+    },
+    {
+      "method": "apply_weekday_mirror_schedule",
+      "original": "app/run_gui.py",
+      "firstLine": 1430,
+      "lastLine": 1454,
+      "excerpt": "reference/legacy_v206_methods/apply_weekday_mirror_schedule__1430-1454.py.txt",
+      "purpose": "date_changed normal UI flow / mirror weekday schedule"
+    },
+    {
+      "method": "handle_date_changed_popup",
+      "original": "app/run_gui.py",
+      "firstLine": 7532,
+      "lastLine": 7587,
+      "excerpt": "reference/legacy_v206_methods/handle_date_changed_popup__7532-7587.py.txt",
+      "purpose": "date_changed normal UI flow / mirror weekday schedule"
+    },
+    {
+      "method": "wait_for_home_refresh_after_date_change",
+      "original": "app/run_gui.py",
+      "firstLine": 7588,
+      "lastLine": 7668,
+      "excerpt": "reference/legacy_v206_methods/wait_for_home_refresh_after_date_change__7588-7668.py.txt",
+      "purpose": "date_changed normal UI flow / mirror weekday schedule"
+    }
+  ]
+}

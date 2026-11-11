@@ -1,0 +1,1 @@
+반드시 `AGENTS.md`, `docs/10_ARCHITECTURE.md`, `docs/12_DATE_CHANGE.md`, `docs/11_EVENT_EXTENSION.md`, `docs/14_ROADMAP_AND_TESTS.md`를 읽으세요. C#·WPF·.NET 10 LTS·OpenCvSharp5 단일 앱이며 신규 이벤트 모듈이 임무/거울 코드에 침투하지 않는 구조를 목표로 합니다. v2.0.6 진행 순서 보존, 날짜 변경 정상 처리 포함, 게임/ADB/OS 재시작·복구 제외. 우선 `tasks/01_foundation.md`만 구현하고 변경 파일, 빌드/테스트/명세 검증 결과를 보고하세요.

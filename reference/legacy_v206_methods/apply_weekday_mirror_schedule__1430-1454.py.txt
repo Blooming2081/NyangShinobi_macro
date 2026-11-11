@@ -1,0 +1,25 @@
+    def apply_weekday_mirror_schedule(self, reason="요일 자동 설정", force_log=False):
+        """Windows 시각과 오전 4시 기준으로 현재 거울 설정을 갱신합니다."""
+        current_game_date = game_date_from_windows_time()
+        changed = current_game_date != self.active_game_date
+        self.active_game_date = current_game_date
+
+        weekday_name, attr, character = mirror_schedule_for_game_date(
+            current_game_date, self.weekday_mirror_schedule
+        )
+        self.attr = attr
+        self.character = character
+
+        if changed or force_log:
+            self.log(
+                f"{reason}: 게임 날짜 {current_game_date} {weekday_name} "
+                f"(변경 기준 04:00) → {attr} / 캐릭터 {character}번"
+            )
+        return changed
+
+    def record_bigi_click_latency(self, mode_name, detected_at, clicked_at):
+        elapsed = max(0.0, float(clicked_at) - float(detected_at))
+        samples = self.bigi_click_latencies.setdefault(mode_name, [])
+        samples.append(elapsed)
+        all_samples = [
+            value

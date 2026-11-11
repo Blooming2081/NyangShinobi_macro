@@ -1,0 +1,29 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L7185-L7210
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def character_click(self, number):
+        # 480x1320 기준 캐릭터 1~10의 실제 슬롯 중심 좌표입니다.
+        # 화면 해상도가 달라져도 같은 비율로 보정합니다.
+        character_positions = {
+            1: (434, 456),
+            2: (434, 510),
+            3: (434, 564),
+            4: (434, 619),
+            5: (434, 673),
+            6: (434, 727),
+            7: (434, 781),
+            8: (434, 835),
+            9: (434, 889),
+            10: (434, 943),
+        }
+        if number not in character_positions:
+            raise ValueError(f"캐릭터 번호가 올바르지 않습니다: {number}")
+
+        screen = self.adb_screencap()
+        h, w = screen.shape[:2]
+        base_x, base_y = character_positions[number]
+        x = int(base_x * w / 480)
+        y = int(base_y * h / 1320)
+
+        self.log(f"캐릭터 {number}번 선택 / 보정 좌표 {x}, {y}")
+        self.adb_click(x, y)

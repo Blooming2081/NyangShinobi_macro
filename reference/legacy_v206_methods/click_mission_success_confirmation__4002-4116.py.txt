@@ -1,0 +1,115 @@
+    def click_mission_success_confirmation(
+        self, screen, confirm_x, confirm_y, source_label,
+        allow_double_reward=True,
+    ):
+        """선택적 2배 획득을 먼저 누른 뒤 임무 성공 확인을 누릅니다.
+
+        반환값은 (성공 확인 클릭 완료, 2배 획득 클릭 여부)입니다. 2배 획득
+        화면 전환이 길어지면 호출부가 같은 임무를 유지한 채 확인을 계속
+        감시할 수 있도록 성공 확인 미완료 상태를 반환합니다.
+        """
+        double_clicked = False
+        double_template = NAV_TEMPLATES.get("mission_double_reward")
+        double_screen = screen
+        can_search_double = (
+            allow_double_reward
+            and screen is not None
+            and double_template
+            and os.path.exists(double_template)
+        )
+        if can_search_double:
+            # 현재 성공 화면 한 프레임에서만 검사합니다. 2배 버튼이 없는 성공
+            # 화면은 별도 대기 없이 즉시 기존 확인 버튼 처리로 넘어갑니다.
+            found_double, _, _, double_score = self.find_nav_image_near(
+                double_template,
+                MISSION_SUCCESS_DOUBLE_ICON_CENTER_RATIO,
+                MISSION_SUCCESS_DOUBLE_ICON_TOLERANCE_RATIO,
+                threshold=MISSION_SUCCESS_DOUBLE_MATCH_THRESHOLD,
+                screen=double_screen,
+            )
+            if found_double:
+                screen_h, screen_w = double_screen.shape[:2]
+                double_x = int(
+                    screen_w * MISSION_SUCCESS_DOUBLE_BUTTON_CENTER_RATIO[0]
+                )
+                double_y = int(
+                    screen_h * MISSION_SUCCESS_DOUBLE_BUTTON_CENTER_RATIO[1]
+                )
+                self.log(
+                    f"{source_label}: 2배 획득 버튼 발견 / 일치율 "
+                    f"{double_score:.3f} → 성공 확인보다 우선 클릭 "
+                    f"{double_x}, {double_y}"
+                )
+                self.adb_click(double_x, double_y)
+                self.mark_progress("임무 성공 2배 획득 클릭")
+                double_clicked = True
+
+        if not double_clicked:
+            # 연속 검사 중 화면이 안정화되며 확인 버튼 위치가 바뀌었을 수
+            # 있으므로 마지막 프레임에서 확인 좌표를 한 번 갱신합니다.
+            if can_search_double and double_screen is not None:
+                button_found, button_x, button_y, _ = self.find_nav_image(
+                    NAV_TEMPLATES["mission_clear"],
+                    threshold=0.64,
+                    screen=double_screen,
+                )
+                if button_found:
+                    confirm_x, confirm_y = button_x, button_y
+                else:
+                    return False, False
+            self.adb_click(confirm_x, confirm_y)
+            return True, False
+
+        # 2배 획득 처리 중에는 이전 프레임의 확인 좌표를 재사용하지 않습니다.
+        # 성공 화면이 실제로 돌아온 새 프레임에서 제목과 확인 버튼을 함께
+        # 재검출한 뒤 확인을 눌러 광고/보상 화면 오클릭을 방지합니다.
+        time.sleep(0.55)
+        deadline = time.time() + MISSION_SUCCESS_DOUBLE_RETURN_TIMEOUT_SECONDS
+        double_transition_seen = False
+        while time.time() < deadline:
+            self.checkpoint()
+            verify_screen = self._raw_screencap()
+            if verify_screen is None:
+                time.sleep(0.25)
+                continue
+
+            title_found, _, _, _ = self.find_nav_image_near(
+                NAV_TEMPLATES["mission_success_title"],
+                MISSION_SUCCESS_TITLE_CENTER_RATIO,
+                MISSION_SUCCESS_TITLE_TOLERANCE_RATIO,
+                threshold=0.76,
+                screen=verify_screen,
+            )
+            button_found, button_x, button_y, button_score = self.find_nav_image(
+                NAV_TEMPLATES["mission_clear"],
+                threshold=0.64,
+                screen=verify_screen,
+            )
+            double_still_present, _, _, _ = self.find_nav_image_near(
+                double_template,
+                MISSION_SUCCESS_DOUBLE_ICON_CENTER_RATIO,
+                MISSION_SUCCESS_DOUBLE_ICON_TOLERANCE_RATIO,
+                threshold=MISSION_SUCCESS_DOUBLE_MATCH_THRESHOLD,
+                screen=verify_screen,
+            )
+            if not (title_found and button_found and double_still_present):
+                double_transition_seen = True
+
+            # 클릭 직후 아직 그대로 남아 있는 기존 성공 프레임에서는 확인을
+            # 누르지 않습니다. 광고/보상 화면으로 한 번 전환된 뒤 성공 화면이
+            # 돌아온 경우에만 확인을 눌러 2배 처리가 취소되지 않게 합니다.
+            if double_transition_seen and title_found and button_found:
+                self.log(
+                    "2배 획득 처리 후 임무 성공 확인 버튼 발견 "
+                    f"/ 일치율 {button_score:.3f} → 클릭"
+                )
+                self.adb_click(button_x, button_y)
+                self.mark_progress("2배 획득 후 임무 성공 확인")
+                return True, True
+            time.sleep(0.30)
+
+        self.log(
+            "2배 획득 클릭 후 임무 성공 확인 버튼 대기 시간 초과 "
+            "→ 같은 임무 화면 감시에서 확인을 계속합니다."
+        )
+        return False, True

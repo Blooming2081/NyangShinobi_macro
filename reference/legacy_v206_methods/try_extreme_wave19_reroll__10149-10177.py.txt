@@ -1,0 +1,32 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L10149-L10177
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def _try_extreme_wave19_reroll(self, screen, match, bigi_card_obtained):
+        """극의 미획득 1번을 위해 판당 1회를 19웨이브 선택지까지 보존합니다."""
+        if (
+            self.mission_rank != "극의 임무"
+            or bigi_card_obtained
+            or getattr(self, "extreme_wave19_reroll_attempted", False)
+            or (match and self._is_special_priority_one(match[0]))
+        ):
+            return False
+        found, x, y, score = self.find_nav_image_near(
+            NAV_TEMPLATES["reroll"], MISSION_REROLL_CENTER_RATIO,
+            MISSION_REROLL_TOLERANCE_RATIO, threshold=0.62, screen=screen,
+        )
+        if not found or not self._extreme_card_is_wave19(screen):
+            return False
+        # 전송 결과가 불명확해도 같은 판에서 무작정 재입력하지 않습니다.
+        self.extreme_wave19_reroll_attempted = True
+        self.extreme_reroll_pending_signature = cv2.resize(
+            screen[int(screen.shape[0] * .34):int(screen.shape[0] * .61)], (48, 36)
+        )
+        self.extreme_reroll_pending_since = time.monotonic()
+        self.log(
+            "극의 Wave 19/20 교차확인 / 1번 비기 미획득 → "
+            f"다른 우선 카드보다 다시 뽑기 1회 사용 / 일치율 {score:.3f}"
+        )
+        self.adb_click(x, y)
+        self.mark_progress("극의 19웨이브 비기 확보 다시 뽑기")
+        time.sleep(0.6)
+        return True

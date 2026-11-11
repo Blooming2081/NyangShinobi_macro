@@ -1,0 +1,244 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L10250-L10490
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def select_mission_skill(
+        self, screen=None, include_bigi_priority=True,
+        include_deferred_bigi_priority=True,
+    ):
+        """우선 스킬을 찾고, 등급 임무는 미감지 시 다시 뽑기를 사용합니다."""
+        if screen is None:
+            screen = self.adb_screencap()
+        if self.mission_rank == "극의 임무":
+            pending = getattr(self, "extreme_reroll_pending_signature", None)
+            if pending is not None:
+                current = cv2.resize(
+                    screen[int(screen.shape[0] * .34):int(screen.shape[0] * .61)], (48, 36)
+                )
+                change = float(np.mean(cv2.absdiff(current, pending)))
+                still_active, _, _, _ = self.find_nav_image_near(
+                    NAV_TEMPLATES["reroll"], MISSION_REROLL_CENTER_RATIO,
+                    MISSION_REROLL_TOLERANCE_RATIO, threshold=0.62, screen=screen,
+                )
+                if change < 8.0 and still_active:
+                    if time.monotonic() - self.extreme_reroll_pending_since < 2.0:
+                        return "retry"
+                    self.log("극의 다시 뽑기 전환 미확인 → 중복 입력 없이 기존 선택지 재검사")
+                self.extreme_reroll_pending_signature = None
+        screen = self.stabilize_upper_mission_card_screen(screen)
+        screen = self.stabilize_lower_mission_card_screen(screen)
+        if self.mission_rank == "극의 임무":
+            acquired_cards, acquired_score = (
+                self.detect_extreme_three_blue_acquired_cards(screen)
+            )
+            reroll_on_acquired, _, _, _ = self.find_nav_image_near(
+                NAV_TEMPLATES["reroll"],
+                MISSION_REROLL_CENTER_RATIO,
+                MISSION_REROLL_TOLERANCE_RATIO,
+                threshold=0.62,
+                screen=screen,
+            )
+            if acquired_cards and not reroll_on_acquired:
+                selected_index = random.randrange(3)
+                selected_ratio = (0.19, 0.50, 0.81)[selected_index]
+                self.log(
+                    "극의 파란 습득 카드 3장 감지 / 다시 뽑기 없음 "
+                    f"/ 판정값 {acquired_score:.3f} → "
+                    f"{selected_index + 1}번째 카드 무작위 선택"
+                )
+                time.sleep(self.skill_click_delay)
+                self._tap_mission_skill_card(
+                    screen,
+                    int(screen.shape[1] * selected_ratio),
+                    int(screen.shape[0] * MISSION_SKILL_CLICK_Y_RATIO),
+                    f"극의 파란 습득 카드 {selected_index + 1}번",
+                )
+                if not self.extreme_new_ninpo_acquired:
+                    self.extreme_new_ninpo_acquired = True
+                    self.extreme_bigi_allowed_center = (
+                        BIGI_EXTREME_MISSION_ACQUIRED_ALLOWED_CENTER
+                    )
+                    self.log(
+                        "극의 새 인법 습득 → 비기 허용좌표를 "
+                        f"{BIGI_EXTREME_MISSION_ACQUIRED_ALLOWED_CENTER[0]}, "
+                        f"{BIGI_EXTREME_MISSION_ACQUIRED_ALLOWED_CENTER[1]}로 변경"
+                    )
+                return "acquired_random"
+        match = self.find_priority_skill_on_screen(
+            screen,
+            include_regular=True,
+            include_bigi_priority=include_bigi_priority,
+            include_deferred_bigi_priority=include_deferred_bigi_priority,
+        )
+        if self._try_extreme_wave19_reroll(
+            screen, match, bigi_card_obtained=not include_deferred_bigi_priority,
+        ):
+            return "rerolled"
+        if match:
+            name, center_x, val = match
+            click_y = int(screen.shape[0] * MISSION_SKILL_CLICK_Y_RATIO)
+            is_upper_special_roko_card = (
+                self.is_mission_mode()
+                and self.mission_rank in ("상위 임무", "극의 임무")
+                and self._is_special_priority_one(name)
+            )
+            if is_upper_special_roko_card:
+                self.log(
+                    f"{self.mission_rank} 1번 특로코 비기 카드 발견: {name} "
+                    f"/ 일치율 {val:.3f} → {self.skill_click_delay:.2f}초 후 선택"
+                )
+                time.sleep(self.skill_click_delay)
+                self._tap_mission_skill_card(screen, center_x, click_y, name)
+                if self.mission_rank == "극의 임무":
+                    self.log(
+                        "특로코 비기 카드 선택 완료 → Wave 20/20 및 "
+                        "진행 바 30% 조건부 감시를 시작합니다."
+                    )
+                else:
+                    self.log(
+                        "특로코 비기 카드 선택 완료 → Wave 20/20 및 HP 조건부 "
+                        "전용 감시를 시작합니다."
+                    )
+                return "bigi_deferred"
+            if name.startswith("비기 최우선_"):
+                self.log(
+                    f"비기 카드 발견: {name} / 일치율 {val:.3f} → 즉시 선택"
+                )
+                self._tap_mission_skill_card(screen, center_x, click_y, name)
+                if self.is_deferred_bigi_name(name):
+                    self.log(
+                        "3번 비기 카드 선택 완료 → 개별 설정에 따라 "
+                        "HUD 자동 사용은 생략합니다."
+                    )
+                    return "bigi_deferred"
+                self.last_selected_regular_bigi_stem = self.extract_bigi_stem(name)
+                return "bigi"
+            if self.is_deferred_bigi_name(name):
+                self.log(
+                    f"상위 임무 1번 우선 스킬에서 3번 비기 카드 발견: {name} "
+                    f"/ 일치율 {val:.3f} → {self.skill_click_delay:.2f}초 후 선택"
+                )
+                time.sleep(self.skill_click_delay)
+                self._tap_mission_skill_card(screen, center_x, click_y, name)
+                self.log(
+                    "3번 비기 카드 선택 완료 → 전투 HUD의 조건부 사용만 대기합니다."
+                )
+                return "bigi_deferred"
+            if self.is_priority_bigi_name(name):
+                self.log(
+                    f"상위 임무 우선순위 폴더에서 비기 카드 발견: {name} "
+                    f"/ 일치율 {val:.3f} → {self.skill_click_delay:.2f}초 후 선택"
+                )
+                time.sleep(self.skill_click_delay)
+                self._tap_mission_skill_card(screen, center_x, click_y, name)
+                self.last_selected_regular_bigi_stem = self.extract_bigi_stem(name)
+                return "bigi"
+            if (
+                self.mission_rank == "하위 임무"
+                and include_bigi_priority
+                and self._is_special_priority_one(name)
+            ):
+                self.log(
+                    f"하위 임무 1번 비기 카드 발견: {name} / 일치율 {val:.3f} "
+                    "→ 최우선 선택 후 허용 좌표 사용 대기"
+                )
+                time.sleep(self.skill_click_delay)
+                self._tap_mission_skill_card(screen, center_x, click_y, name)
+                # 기본 01번만 기존 2번 HUD 얼굴과 연결합니다. 사용자
+                # 카드 이미지를 기본 HUD 얼굴로 오인하지 않습니다.
+                self.last_selected_regular_bigi_stem = (
+                    "secret_skill_02"
+                    if os.path.splitext(name)[0].casefold() == "01_priority_skill"
+                    else self.extract_bigi_stem(name)
+                    or "__custom_bigi_no_hud_template__"
+                )
+                return "bigi"
+            self.log(
+                f"우선 스킬 발견: {name} / 일치율 {val:.3f} "
+                f"→ {self.skill_click_delay:.2f}초 후 클릭"
+            )
+            time.sleep(self.skill_click_delay)
+            self._tap_mission_skill_card(screen, center_x, click_y, name)
+            return "priority"
+
+        is_ranked_mission = (
+            self.is_mission_mode()
+            and self.mission_rank in ("하위 임무", "상위 임무")
+        )
+        # 극의는 1번 비기 카드를 아직 못 얻었을 때 판당 1회의 다시 뽑기를
+        # Wave 19까지 보존합니다. 반대로 1번을 이미 확보했다면 보존할 이유가
+        # 없으므로, 이후 선택지에 등록 우선 카드가 하나도 없을 때 남은 1회를
+        # 즉시 사용합니다. include_deferred_bigi_priority=False는 이 판에서
+        # 극의 1번 카드를 이미 선택했다는 메인 전투 상태입니다.
+        extreme_bigi_obtained_reroll = (
+            self.mission_rank == "극의 임무"
+            and not include_deferred_bigi_priority
+            and not getattr(self, "extreme_wave19_reroll_attempted", False)
+        )
+        if is_ranked_mission or extreme_bigi_obtained_reroll:
+            found_reroll, reroll_x, reroll_y, reroll_val = (
+                self.find_nav_image_near(
+                    NAV_TEMPLATES["reroll"],
+                    MISSION_REROLL_CENTER_RATIO,
+                    MISSION_REROLL_TOLERANCE_RATIO,
+                    threshold=0.62,
+                    screen=screen,
+                )
+            )
+            if found_reroll:
+                if extreme_bigi_obtained_reroll:
+                    # 버튼 입력 결과가 늦어도 같은 판에서 두 번 누르지 않도록
+                    # 클릭 전에 먼저 공유 사용 횟수를 소진 처리합니다.
+                    self.extreme_wave19_reroll_attempted = True
+                    self.extreme_reroll_pending_signature = cv2.resize(
+                        screen[
+                            int(screen.shape[0] * .34):
+                            int(screen.shape[0] * .61)
+                        ],
+                        (48, 36),
+                    )
+                    self.extreme_reroll_pending_since = time.monotonic()
+                    self.log(
+                        "극의 1번 비기 카드 확보 상태 / 등록된 우선 스킬 없음 "
+                        "→ 남은 다시 뽑기 1회 사용 "
+                        f"/ 일치율 {reroll_val:.3f}"
+                    )
+                else:
+                    self.log(
+                        "등록된 우선 스킬 없음 → 다시 뽑기 사용 "
+                        f"/ 일치율 {reroll_val:.3f}"
+                    )
+                self.adb_click(reroll_x, reroll_y)
+                self.mark_progress("임무 우선 스킬 미감지 다시 뽑기")
+                # 같은 프레임의 활성 버튼을 연속 입력하지 않도록 화면 전환만
+                # 잠시 기다리고, 새 카드 선택은 기존 감시 루프에서 다시 판정합니다.
+                time.sleep(0.6)
+                return "rerolled"
+            self.log(
+                "등록된 우선 스킬 없음 / 다시 뽑기 사용 불가 "
+                "→ 왼쪽 스킬 선택"
+            )
+        else:
+            if self.mission_rank == "극의 임무":
+                if not include_deferred_bigi_priority:
+                    self.log(
+                        "극의 1번 비기 카드 확보 상태 / 우선 스킬 없음 / "
+                        "다시 뽑기 사용 완료 또는 비활성 → 왼쪽 선택"
+                    )
+                else:
+                    self.log(
+                        "극의 우선 스킬 없음 → 19웨이브 비기 미획득 때만 "
+                        "다시 뽑기 사용 / 왼쪽 선택"
+                    )
+            else:
+                self.log("등록된 우선 스킬 없음 → 왼쪽 스킬 선택")
+        self.log(
+            f"왼쪽 스킬 감지 완료 → {self.skill_click_delay:.2f}초 후 클릭"
+        )
+        time.sleep(self.skill_click_delay)
+        self._tap_mission_skill_card(
+            screen,
+            int(screen.shape[1] * MISSION_LEFT_SKILL_RATIO[0]),
+            int(screen.shape[0] * MISSION_LEFT_SKILL_RATIO[1]),
+            "왼쪽 스킬",
+        )
+        return False

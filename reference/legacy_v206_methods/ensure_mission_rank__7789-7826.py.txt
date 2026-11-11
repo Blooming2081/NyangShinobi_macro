@@ -1,0 +1,41 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L7789-L7826
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def ensure_mission_rank(self):
+        """GUI에서 설정한 임무와 현재 탭을 비교하고 필요할 때만 변경합니다."""
+        target = self.mission_rank
+        self.log(f"설정 임무 확인: {target}")
+
+        current = None
+        for _ in range(3):
+            current, _ = self.detect_current_mission_rank()
+            if current is not None:
+                break
+            time.sleep(0.35)
+
+        if current == target:
+            self.log(f"현재 임무가 설정과 일치합니다: {target}")
+            return
+
+        ratio = MISSION_RANK_CLICK_RATIOS[target]
+        self.log(
+            f"현재 임무 {current or '확인 불가'} → "
+            f"{target} 탭으로 변경합니다."
+        )
+        self.scaled_click(ratio[0], ratio[1], f"{target} 탭")
+
+        # 탭 전환 애니메이션 후 선택 상태를 다시 확인합니다.
+        for _ in range(8):
+            self.checkpoint()
+            time.sleep(0.1)
+
+        deadline = time.time() + 6.0
+        while time.time() < deadline:
+            self.checkpoint()
+            current, val = self.detect_current_mission_rank()
+            if current == target:
+                self.log(f"{target} 전환 확인 완료 / 일치율 {val:.3f}")
+                return
+            time.sleep(0.25)
+
+        raise RuntimeError(f"{target} 탭 전환을 확인하지 못했습니다.")

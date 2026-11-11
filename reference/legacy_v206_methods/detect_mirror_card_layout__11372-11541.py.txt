@@ -1,0 +1,173 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L11372-L11541
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @staticmethod
+    @opencv_serialized
+    def _detect_mirror_card_layout(screen):
+        """거울 카드 패널의 고정 테두리 배치로 4·3·2·1장 화면을 판별합니다."""
+        screen = MacroEngine._normalize_mission_screen(screen)
+        if screen is None:
+            return None, 0.0, 0.0, None
+
+        # 카드가 놓이는 세로 구간만 잘라 Canny 임시 메모리와 전투 이펙트 영향을
+        # 최소화합니다. 기준 좌표는 학습한 480x1320 거울 화면 기준입니다.
+        card_strip = screen[400:700, :]
+        gray = cv2.cvtColor(card_strip, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 40, 110) > 0
+
+        def border_score(center_x):
+            left = max(0, center_x - 57)
+            right = min(edges.shape[1] - 1, center_x + 57)
+            top = float(np.mean(edges[10:22, left:right + 1]))
+            bottom = float(np.mean(edges[278:290, left:right + 1]))
+            # 2장 카드의 외곽이 4장 후보의 일부 위치에도 겹칩니다. 위·아래
+            # 윤곽 평균만 높아 4장으로 오인하지 않도록 각 카드의 양쪽 세로
+            # 테두리가 모두 실제로 있는지 따로 검사합니다.
+            left_strip = edges[
+                14:287, max(0, left - 7):min(edges.shape[1], left + 8)
+            ]
+            right_strip = edges[
+                14:287, max(0, right - 7):min(edges.shape[1], right + 8)
+            ]
+            left_edge = float(np.max(np.mean(left_strip, axis=0)))
+            right_edge = float(np.max(np.mean(right_strip, axis=0)))
+            return (
+                (top + bottom + left_edge + right_edge) / 4.0,
+                min(left_edge, right_edge),
+            )
+
+        probe_centers = sorted({
+            center_x
+            for centers in MIRROR_CARD_LAYOUT_CENTERS.values()
+            for center_x in centers
+        })
+        probe_metrics = {
+            center_x: border_score(center_x) for center_x in probe_centers
+        }
+        probe_scores = {center_x: values[0] for center_x, values in probe_metrics.items()}
+        layout_scores = {}
+        for count, centers in MIRROR_CARD_LAYOUT_CENTERS.items():
+            layout_scores[count] = float(np.mean([
+                probe_scores[center_x] for center_x in centers
+            ]))
+
+        ranked = sorted(layout_scores.items(), key=lambda item: item[1], reverse=True)
+        best_score = ranked[0][1]
+        margin = ranked[0][1] - ranked[1][1]
+        def content_signature(centers):
+            """카드 수가 같아도 선택 단계가 바뀐 것을 카드 내부 내용으로 구분합니다."""
+            samples = []
+            for center_x in centers:
+                left = max(0, center_x - 50)
+                right = min(card_strip.shape[1], center_x + 51)
+                patch = card_strip[20:285, left:right]
+                if patch.size == 0:
+                    continue
+                reduced = cv2.resize(
+                    patch, (10, 24), interpolation=cv2.INTER_AREA
+                )
+                samples.append(reduced.reshape(-1))
+            if not samples:
+                return None
+            return np.concatenate(samples).astype(np.uint8, copy=False)
+
+        # 중앙 카드가 포함된 3장 화면은 1장 후보도 높은 평균을 얻습니다. 평균
+        # 순위 대신 큰 배치부터 모든 필수 중심의 테두리가 실제로 있는지 확인해
+        # 3장을 1장과 구분합니다.
+        for count in (4, 3, 2, 1):
+            centers = MIRROR_CARD_LAYOUT_CENTERS[count]
+            required_scores = [probe_scores[center_x] for center_x in centers]
+            if count == 4:
+                # 비기 카드 한 장은 보라색 전면/이펙트 때문에 회색 카드의
+                # 테두리·하단 밝기 기준을 통과하지 못할 수 있습니다. 나머지
+                # 세 칸에 독립적인 직사각형 테두리가 확인되면 4장 배치를
+                # 먼저 확정해 중앙 1장으로 내려가는 오류를 막습니다.
+                visible_borders = sum(
+                    probe_scores[center_x] >= 0.18
+                    and probe_metrics[center_x][1] >= 0.10
+                    for center_x in centers
+                )
+                candidate_borders = sum(
+                    probe_scores[center_x] >= 0.13
+                    and probe_metrics[center_x][1] >= 0.08
+                    for center_x in centers
+                )
+                outer_borders = all(
+                    probe_scores[center_x] >= 0.13
+                    and probe_metrics[center_x][1] >= 0.08
+                    for center_x in (centers[0], centers[-1])
+                )
+                if (
+                    outer_borders
+                    and (visible_borders >= 3 or (
+                        candidate_borders >= 3 and visible_borders >= 2
+                    ))
+                ):
+                    return (
+                        count, layout_scores[count], margin,
+                        content_signature(centers),
+                    )
+            if count == 1:
+                # 로그의 0.191처럼 약한 중앙 윤곽은 1장 확정 근거가
+                # 아닙니다. 재캡처를 기다려 4장 비기 위치를 재판정합니다.
+                if layout_scores[1] < MIRROR_SINGLE_CARD_MIN_LAYOUT_SCORE:
+                    continue
+                # 4장 배치 중 한 장의 렌더링이 흐려진 프레임을 중앙
+                # 1장으로 오인해 첫 카드만 반복 선택하지 않습니다.
+                four_side_evidence = sum(
+                    probe_scores[center_x] >= 0.13
+                    and probe_metrics[center_x][1] >= 0.08
+                    for center_x in MIRROR_CARD_LAYOUT_CENTERS[4]
+                )
+                if four_side_evidence >= 2:
+                    continue
+            # 속성 선택 화면의 원형 아이콘도 세로 윤곽을 만들 수 있지만
+            # 카드처럼 위·아래 구간 전체가 밝은 직사각형으로 채워지지는 않습니다.
+            card_bodies_present = all(
+                min(
+                    float(np.mean(gray[35:85, center_x - 40:center_x + 41])),
+                    float(np.mean(gray[210:275, center_x - 40:center_x + 41])),
+                ) >= 56.0
+                for center_x in centers
+            )
+            # 3장 화면의 우측 비기 카드는 전면이 보라색으로 채워져 일반
+            # 회색 카드보다 Canny 외곽 점수가 낮습니다(실측 0.122). 이
+            # 배치만 소폭 보정해 3장을 중앙 1장으로 오인하지 않게 합니다.
+            required_threshold = 0.10 if count == 3 else 0.105
+            side_threshold = 0.045 if count == 3 else 0.06
+            both_sides_present = all(
+                probe_metrics[center_x][1] >= side_threshold
+                for center_x in centers
+            )
+            # 실제 거울 카드의 아래쪽은 속성·영상 밝기에 따라 거의 검게
+            # 보일 수 있습니다. 영상의 4장 화면에서는 네 카드 모두 외곽선이
+            # 뚜렷하지만 아래쪽 평균 밝기가 37~47이라 기존 56 기준을
+            # 통과하지 못하고 가운데 1장으로 잘못 판정됐습니다.
+            strong_card_borders = (
+                min(required_scores) >= 0.30
+                and all(
+                    probe_metrics[center_x][1] >= 0.45
+                    for center_x in centers
+                )
+            )
+            if (
+                both_sides_present
+                and (card_bodies_present or strong_card_borders)
+                and min(required_scores) >= required_threshold
+            ):
+                return (
+                    count,
+                    layout_scores[count],
+                    margin,
+                    content_signature(centers),
+                )
+
+        # 배치 판정이 불확실한 화면도 다음 프레임에서 내용 변화를 비교할 수
+        # 있도록 카드 구간 전체의 축소 영상을 서명으로 남깁니다.
+        fallback = cv2.resize(
+            card_strip, (40, 24), interpolation=cv2.INTER_AREA
+        )
+        return (
+            None, best_score, margin,
+            fallback.reshape(-1).astype(np.uint8, copy=False),
+        )

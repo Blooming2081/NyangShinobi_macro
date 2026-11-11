@@ -1,0 +1,77 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L7212-L7285
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def open_trial_screen_from_home(self, timeout=18, max_clicks=3):
+        """홈의 시련 버튼 입력이 실제 화면 전환으로 이어졌는지 확인합니다."""
+        deadline = time.time() + timeout
+        click_count = 0
+        next_click_at = 0.0
+        last_log = 0.0
+
+        while time.time() < deadline:
+            self.checkpoint()
+            if self.handle_date_changed_popup():
+                continue
+
+            training_found, _, _, training_score = self.find_nav_image(
+                NAV_TEMPLATES["mirror_training"], 0.66
+            )
+            if training_found:
+                self.log(
+                    "홈의 시련 버튼 화면 전환 확인 "
+                    f"→ 음양의 거울 훈련 화면 준비 완료 / 일치율 {training_score:.3f}"
+                )
+                self.mark_progress("시련 화면 진입 확인")
+                return
+
+            home_found, matched_x, matched_y, home_score = self.find_nav_image(
+                NAV_TEMPLATES["home_trial"], 0.66
+            )
+            now = time.time()
+
+            if home_found and now >= next_click_at:
+                if click_count < max_clicks:
+                    click_count += 1
+                    if click_count == 1:
+                        click_x, click_y = matched_x, matched_y
+                        self.log(
+                            f"홈의 시련 버튼 발견 / 일치율 {home_score:.3f} "
+                            "→ 클릭 후 화면 전환 확인"
+                        )
+                    else:
+                        # 템플릿 중심 입력이 랙 또는 좁은 터치 영역 때문에 무시될 때
+                        # 현재 화면 크기에 맞춘 버튼 내부 중앙을 사용합니다.
+                        screen = self.adb_screencap()
+                        height, width = screen.shape[:2]
+                        click_x = int(round(width * (420 / 480)))
+                        click_y = int(round(height * (1102 / 1320)))
+                        self.log(
+                            "홈의 시련 화면이 그대로임 "
+                            f"→ 버튼 중앙 재클릭 {click_count}/{max_clicks} / "
+                            f"보정 좌표 {click_x}, {click_y}"
+                        )
+
+                    self.adb_click(click_x, click_y)
+                    self.mark_progress(f"홈의 시련 버튼 클릭 {click_count}회")
+                    next_click_at = time.time() + 1.5
+                    continue
+
+                # 마지막 입력 직후 화면 전환이 늦게 완료될 수도 있으므로
+                # 제한 시간까지 훈련 화면 감지는 계속하되 추가 클릭은 하지 않습니다.
+                next_click_at = deadline + 1.0
+
+            if now - last_log >= 3.0:
+                self.log(
+                    "시련 화면 전환 확인 중 / "
+                    f"홈 {home_score:.3f}, 음양의 거울 {training_score:.3f}"
+                )
+                last_log = now
+            time.sleep(0.20)
+
+        self.capture_learning_event(
+            "navigation_timeout",
+            f"label=홈의 시련 화면 전환, clicks={click_count}",
+        )
+        raise TimeoutError(
+            f"홈의 시련 버튼을 {click_count}회 입력했지만 시련 화면으로 전환되지 않았습니다."
+        )

@@ -1,0 +1,67 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L8436-L8499
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @opencv_serialized
+    def load_priority_templates(self):
+        """카드 템플릿을 파일 변경 시에만 읽고 실행 중에는 재사용합니다."""
+        file_specs = []
+
+        priority_dir = self.active_skill_priority_dir()
+        if priority_dir and os.path.isdir(priority_dir):
+            priority_names = sorted(
+                os.listdir(priority_dir), key=self._priority_filename_order
+            )
+            for name in priority_names:
+                if not name.lower().endswith(SUPPORTED_SKILL_IMAGE_EXTENSIONS):
+                    continue
+                path = os.path.join(priority_dir, name)
+                file_specs.append((name, path, False))
+
+        valid_specs = []
+        signature = []
+        for label, path, is_bigi in file_specs:
+            try:
+                stat = os.stat(path)
+            except OSError:
+                continue
+            valid_specs.append((label, path, is_bigi))
+            signature.append((
+                label,
+                os.path.normcase(os.path.abspath(path)),
+                int(stat.st_mtime_ns),
+                int(stat.st_size),
+                bool(is_bigi),
+            ))
+
+        cache_key = (
+            str(self.mode),
+            str(self.mission_rank),
+            tuple(signature),
+        )
+        if cache_key == self.priority_template_cache_key:
+            return self.priority_template_cache_items
+
+        items = []
+        invalid_names = []
+        for label, path, is_bigi in valid_specs:
+            template = read_image_unicode(path, cv2.IMREAD_COLOR)
+            if template is not None and min(template.shape[:2]) >= 8:
+                items.append((label, template, is_bigi))
+            else:
+                invalid_names.append(label)
+        self.priority_template_artifact_cache.clear()
+        self.priority_template_scaled_cache.clear()
+        self.priority_template_cache_key = cache_key
+        self.priority_template_cache_items = tuple(items)
+        self.priority_template_invalid_names = tuple(invalid_names)
+        if cache_key != self.priority_template_last_reported_key:
+            self.priority_template_last_reported_key = cache_key
+            rank = self.mission_rank or "현재 임무"
+            message = (
+                f"{rank} 우선 스킬 이미지 자동 새로고침: "
+                f"정상 {len(items)}개"
+            )
+            if invalid_names:
+                message += f" / 읽기 실패 {len(invalid_names)}개: {', '.join(invalid_names)}"
+            self.log(message)
+        return self.priority_template_cache_items

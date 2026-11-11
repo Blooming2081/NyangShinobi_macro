@@ -1,0 +1,111 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L4498-L4605
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @opencv_serialized
+    def detect_mission_card_layout(self, screen):
+        """다시 뽑기가 비활성화돼도 일반 임무의 3장 카드 배치를 판정합니다."""
+        if screen is None:
+            return False, 0.0
+        height, width = screen.shape[:2]
+        if height < 300 or width < 200:
+            return False, 0.0
+
+        y1, y2 = int(height * 0.35), int(height * 0.61)
+        gray = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+        hsv = cv2.cvtColor(screen, cv2.COLOR_BGR2HSV)
+        edges = cv2.Canny(gray, 45, 120)
+        card_centers = (0.19, 0.50, 0.81)
+        half_width_ratio = 0.135
+        card_means = []
+        neutral_ratios = []
+        blue_card_ratios = []
+        border_scores = []
+
+        for center_ratio in card_centers:
+            left = max(0, int(width * (center_ratio - half_width_ratio)))
+            right = min(width, int(width * (center_ratio + half_width_ratio)))
+            patch = screen[y1:y2, left:right]
+            if patch.size == 0:
+                return False, 0.0
+            patch_gray = gray[y1:y2, left:right]
+            card_means.append(float(np.mean(patch_gray)))
+
+            patch_hsv = hsv[y1:y2, left:right]
+            blue_card = (
+                (patch_hsv[:, :, 0] >= 90)
+                & (patch_hsv[:, :, 0] <= 130)
+                & (patch_hsv[:, :, 1] >= 35)
+                & (patch_hsv[:, :, 2] >= 45)
+            )
+            blue_card_ratios.append(float(np.mean(blue_card)))
+
+            spread = np.max(patch, axis=2) - np.min(patch, axis=2)
+            neutral = (
+                (spread <= 38)
+                & (patch_gray >= 35)
+                & (patch_gray <= 175)
+            )
+            neutral_ratios.append(float(np.mean(neutral)))
+
+            strip = max(2, int(width * 0.008))
+            left_edges = edges[y1:y2, max(0, left - strip):min(width, left + strip + 1)]
+            right_edges = edges[y1:y2, max(0, right - strip):min(width, right + strip + 1)]
+            border_scores.append(
+                (float(np.mean(left_edges > 0)) + float(np.mean(right_edges > 0))) / 2
+            )
+
+        gap_means = []
+        for gap_ratio in (0.345, 0.655):
+            half_gap = max(2, int(width * 0.018))
+            center = int(width * gap_ratio)
+            gap = gray[y1:y2, center - half_gap:center + half_gap + 1]
+            gap_means.append(float(np.mean(gap)))
+
+        card_average = float(np.mean(card_means))
+        gap_average = float(np.mean(gap_means))
+        contrast = card_average - gap_average
+        uniformity = max(card_means) - min(card_means)
+        neutral_average = float(np.mean(neutral_ratios))
+        border_average = float(np.mean(border_scores))
+
+        base_structure = (
+            min(card_means) >= 52.0
+            and contrast >= 13.0
+            and neutral_average >= 0.28
+            and border_average >= 0.045
+        )
+        # 일반 카드 3장은 밝기가 비슷하지만 비기 카드는 보라색 전체 카드라
+        # 가운데 슬롯의 평균 밝기가 크게 달라집니다. 테두리와 카드/간격 대비가
+        # 매우 선명한 경우에는 밝기 균일성 조건을 적용하지 않습니다.
+        strong_three_card_structure = (
+            contrast >= 25.0
+            and border_average >= 0.10
+            and neutral_average >= 0.25
+        )
+        # 극의 임무의 '습득' 카드 3장은 일반 회색 카드와 달리 파란색
+        # 배경이 카드 면적 대부분을 차지해 neutral 비율이 약 0.26까지
+        # 내려갑니다. 세 칸 모두 같은 파란 카드이고, 카드/간격 대비와
+        # 양쪽 테두리가 동시에 선명할 때만 별도 카드 화면으로 허용합니다.
+        # 이 조건은 전투 효과나 룰렛의 일부 파란 영역만으로는 통과하지
+        # 않으므로 기존 일반 카드/룰렛 판정에는 영향을 주지 않습니다.
+        acquired_three_card_structure = (
+            max(blue_card_ratios) >= 0.55
+            and contrast >= 40.0
+            and uniformity <= 20.0
+            and neutral_average >= 0.18
+            and border_average >= 0.15
+        )
+        detected = (
+            base_structure
+            and (uniformity <= 40.0 or strong_three_card_structure)
+        ) or acquired_three_card_structure
+        # 로그에서 비교하기 쉬운 0~1 보조 판정값입니다.
+        score = min(
+            1.0,
+            max(0.0, contrast / 30.0) * 0.40
+            + min(1.0, neutral_average / 0.50) * 0.35
+            + min(1.0, border_average / 0.12) * 0.25,
+        )
+        if detected and self._home_screen_ready(screen):
+            return False, 0.0
+        return detected, score

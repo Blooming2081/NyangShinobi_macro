@@ -1,0 +1,95 @@
+{
+  "name": "NyangShinobi",
+  "version": "0.1.0",
+  "stage": "design_only",
+  "platform": "win-x64",
+  "language": "C#",
+  "targetFrameworks": {
+    "App": "net10.0-windows",
+    "libraries": "net10.0"
+  },
+  "gui": "WPF",
+  "vision": "OpenCvSharp5.Windows (version to pin in CentralPackageManagement)",
+  "compositionRoot": "src/NyangShinobi.App",
+  "projects": [
+    {
+      "name": "NyangShinobi.Domain",
+      "dir": "src/NyangShinobi.Domain",
+      "references": []
+    },
+    {
+      "name": "NyangShinobi.Contracts",
+      "dir": "src/NyangShinobi.Contracts",
+      "references": [
+        "NyangShinobi.Domain"
+      ]
+    },
+    {
+      "name": "NyangShinobi.Application",
+      "dir": "src/NyangShinobi.Application",
+      "references": [
+        "NyangShinobi.Domain",
+        "NyangShinobi.Contracts"
+      ]
+    },
+    {
+      "name": "NyangShinobi.Features",
+      "dir": "src/NyangShinobi.Features",
+      "references": [
+        "NyangShinobi.Application",
+        "NyangShinobi.Contracts",
+        "NyangShinobi.Domain"
+      ]
+    },
+    {
+      "name": "NyangShinobi.Vision.OpenCvSharp",
+      "dir": "src/NyangShinobi.Vision.OpenCvSharp",
+      "references": [
+        "NyangShinobi.Contracts",
+        "NyangShinobi.Domain"
+      ]
+    },
+    {
+      "name": "NyangShinobi.Device.Adb",
+      "dir": "src/NyangShinobi.Device.Adb",
+      "references": [
+        "NyangShinobi.Contracts",
+        "NyangShinobi.Domain"
+      ]
+    },
+    {
+      "name": "NyangShinobi.App",
+      "dir": "src/NyangShinobi.App",
+      "references": [
+        "NyangShinobi.Application",
+        "NyangShinobi.Features",
+        "NyangShinobi.Vision.OpenCvSharp",
+        "NyangShinobi.Device.Adb"
+      ]
+    }
+  ],
+  "featureModules": [
+    "Mission",
+    "Mirror",
+    "NekoNinja",
+    "DoubleReward",
+    "DateChange",
+    "Events"
+  ],
+  "extensionPoints": [
+    "IGameFlow",
+    "IGameEventHandler",
+    "IEventRegistry",
+    "IScreenDetector",
+    "IGameClock"
+  ],
+  "runtime": {
+    "singleProcess": true,
+    "singleCaptureSchedulerPerDevice": true,
+    "singleInputQueuePerDevice": true,
+    "statefulPollingIntervalMs": 3000,
+    "postInputVerificationMs": 500,
+    "uiThreadDoesNotCapture": true,
+    "noGeneralRecovery": true
+  }
+}

@@ -1,0 +1,14 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L6861-L6871
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def find_mirror_skill_confirm(self, screen=None, threshold=None):
+        """거울 카드 선택의 고정 확인 좌표 주변에서만 image5를 판정합니다."""
+        if threshold is None:
+            threshold = MATCH_THRESHOLD
+        return self.find_nav_image_near(
+            self.image_path(5),
+            MIRROR_SKILL_CONFIRM_CENTER_RATIO,
+            MIRROR_SKILL_CONFIRM_TOLERANCE_RATIO,
+            threshold=threshold,
+            screen=screen,
+        )

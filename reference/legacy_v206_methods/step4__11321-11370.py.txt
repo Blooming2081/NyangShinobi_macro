@@ -1,0 +1,53 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L11321-L11370
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def step4(self):
+        """거울 실패 후 입장 버튼 입력과 실제 화면 전환을 확인합니다."""
+        for attempt in range(1, 4):
+            self.checkpoint()
+            try:
+                x, y = self.wait_battle_image(self.image_path(4), timeout=8.0)
+            except TimeoutError:
+                self.log("거울 재입장 버튼 미감지 → 홈 복귀 경로로 전환")
+                return False
+            self.adb_click(x, y)
+
+            absent_frames = 0
+            verify_deadline = time.monotonic() + 8.0
+            while time.monotonic() < verify_deadline:
+                self.checkpoint()
+                if self.stop_event.wait(0.20):
+                    return False
+                verify_screen = self.adb_screencap()
+                card_ready, _, _, _ = self.find_mirror_skill_confirm(
+                    screen=verify_screen
+                )
+                if card_ready:
+                    self.log("거울 실패 후 재입장 확인 → 스킬 카드 화면 진입 완료")
+                    return True
+                still_enter, _, _, _ = self.find_battle_image(
+                    self.image_path(4), screen=verify_screen
+                )
+                if still_enter:
+                    absent_frames = 0
+                else:
+                    absent_frames += 1
+                    if absent_frames >= 2:
+                        mode, _ = self._detect_active_battle_mode_frame(
+                            verify_screen
+                        )
+                        if mode == "음양의 거울":
+                            self.log("거울 실패 후 실제 전투 HUD 확인 → 감시 재개")
+                            return True
+
+            if attempt < 3:
+                self.log(
+                    "거울 실패 후 입장 화면이 그대로 남아 있음 → "
+                    f"입장 버튼 재클릭 {attempt + 1}/3"
+                )
+
+        self.log(
+            "거울 실패 후 입장 버튼을 3회 눌렀지만 화면 전환을 확인하지 "
+            "못했습니다."
+        )
+        return False

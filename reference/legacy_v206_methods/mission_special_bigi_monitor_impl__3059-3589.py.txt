@@ -1,0 +1,534 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L3059-L3589
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def _mission_special_bigi_monitor_impl(self, token, mission_restart_generation):
+        """Wave 20 확정 뒤 등급별 사용 기준을 만족하면 즉시 비기를 탭합니다."""
+        if not self._initialize_tesseract():
+            return
+        hp_threshold = self.mission_special_bigi_hp_threshold()
+        self.log(f"임무 3번 비기 전용 감시 시작 / 모드={self.mode}")
+        condition_one_hits = 0
+        condition_one_armed = False
+        wave20_seen = False
+        wave20_label_hits = 0
+        wave20_last_hit_at = 0.0
+        next_wave_label_check_at = 0.0
+        last_hp_log = 0.0
+        last_hp_failure_capture = 0.0
+        last_result_screen_check = 0.0
+        fast_mode_started_at = 0.0
+        fast_tap_shell = None
+        last_shared_screencap_at = -1.0
+        last_extreme_position_check_at = -float("inf")
+        allowed_center = self._mission_bigi_allowed_center()
+
+        def close_fast_tap_shell():
+            nonlocal fast_tap_shell
+            if fast_tap_shell is None:
+                self._close_tracked_special_bigi_fast_tap_shell(token)
+                return
+            process = fast_tap_shell
+            fast_tap_shell = None
+            self._untrack_special_bigi_fast_tap_shell(token, process)
+            self._terminate_fast_tap_shell(process)
+
+        def prepare_fast_tap_shell():
+            """1번 조건 확정 전에 ADB 입력 통로를 미리 준비합니다."""
+            nonlocal fast_tap_shell
+            if fast_tap_shell is not None and fast_tap_shell.poll() is None:
+                return True
+            close_fast_tap_shell()
+            try:
+                fast_tap_shell = subprocess.Popen(
+                    [ADB, "-s", self.bluestacks_device, "shell"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                self._track_special_bigi_fast_tap_shell(token, fast_tap_shell)
+                return True
+            except Exception as exc:
+                fast_tap_shell = None
+                self.log(
+                    f"3번 비기 고속 입력 통로 준비 실패 → 일반 ADB 사용: {exc}"
+                )
+                return False
+
+        while not self.stop_event.is_set():
+            condition_armed_this_frame = False
+            with self.special_bigi_monitor_lock:
+                if token != self.special_bigi_monitor_token:
+                    close_fast_tap_shell()
+                    return
+            if self.restart_generation != mission_restart_generation:
+                close_fast_tap_shell()
+                return
+            if not self.is_mission_mode():
+                close_fast_tap_shell()
+                return
+
+            # 조건 1 확정 전에는 메인 전투 감시가 만든 새 프레임만 공유합니다.
+            # 전용 스레드가 별도의 ADB screencap을 생성하지 않아 BlueStacks의
+            # 그래픽 버퍼 누적을 막고, 동일 프레임을 연속 확인으로 세지 않습니다.
+            if not condition_one_armed and not wave20_seen:
+                remaining = next_wave_label_check_at - time.monotonic()
+                if remaining > 0.0:
+                    time.sleep(min(0.03, remaining))
+                    continue
+
+            if condition_one_armed:
+                screen = self._raw_screencap(
+                    max_cache_age=BLUESTACKS_SCREENCAP_FAST_CACHE_SECONDS
+                )
+            else:
+                screen = self._get_recent_screencap(
+                    BLUESTACKS_SCREENCAP_PRE_WAVE20_CACHE_SECONDS
+                )
+                shared_screencap_at = self.last_screencap_at
+                if (
+                    screen is None
+                    or shared_screencap_at <= last_shared_screencap_at
+                ):
+                    time.sleep(0.01)
+                    continue
+                last_shared_screencap_at = shared_screencap_at
+            if screen is None:
+                time.sleep(0.03)
+                continue
+            screen = self._normalize_mission_screen(screen)
+
+            # 조건 달성 전에 공유 프레임으로 위치를 미리 복원합니다.
+            # 템플릿 검사는 초당 최대 1회이며 별도 ADB 캡처를 만들지 않습니다.
+            position_now = time.monotonic()
+            if (
+                self.mission_rank == "극의 임무"
+                and not wave20_seen
+                and position_now - last_extreme_position_check_at >= 1.0
+            ):
+                self._refresh_extreme_bigi_hud_position(screen)
+                last_extreme_position_check_at = position_now
+
+            if not condition_one_armed:
+                wave_ready, wave_text, sparkle_count, wave_label_seen = (
+                    self._mission_wave20_end_ready(
+                        screen, wave20_already_seen=wave20_seen
+                    )
+                )
+                if not wave20_seen:
+                    wave_numerators = []
+                    for wave_part in wave_text.split(" | "):
+                        wave_numerators.extend(
+                            self._extract_wave20_numerators(
+                                "".join(wave_part.split()).lower()
+                            )
+                        )
+                    wave20_vote_count = sum(
+                        numerator == "20" for numerator in wave_numerators
+                    )
+                    conflicting_wave_seen = any(
+                        numerator != "20" for numerator in wave_numerators
+                    )
+                    # 기존 극의 녹화의 Wave 20 구간을 현재 OCR에 재입력하면
+                    # 전투 이펙트 때문에 5개 채널 중 1~2개가 공백이 되는
+                    # 프레임이 섞였습니다. 극의만 두 채널 이상이 20/20에
+                    # 동의하고 다른 분자가 없으면 유효 프레임으로 인정하되,
+                    # 1초 안의 서로 다른 두 프레임을 요구해 12/20·16/20
+                    # 같은 중간 Wave 오인식을 막습니다.
+                    extreme_wave_frame_seen = (
+                        self.mission_rank == "극의 임무"
+                        and wave20_vote_count >= 2
+                        and not conflicting_wave_seen
+                    )
+                    wave_frame_seen = (
+                        wave_label_seen or extreme_wave_frame_seen
+                    )
+                    now_wave_check = time.monotonic()
+                    if wave_frame_seen:
+                        if (
+                            wave20_last_hit_at <= 0.0
+                            or now_wave_check - wave20_last_hit_at > 1.0
+                        ):
+                            wave20_label_hits = 1
+                        else:
+                            wave20_label_hits += 1
+                        wave20_last_hit_at = now_wave_check
+                        # 첫 내부 교차검증 프레임부터 다음 공유 캡처만 60ms로
+                        # 가속합니다. 두 번째 프레임이 불일치하면 즉시 해제되어
+                        # 중간 Wave의 상시 캡처 부하는 증가하지 않습니다.
+                        self.special_bigi_wave20_watch_mode.set()
+                        if (
+                            wave20_label_hits
+                            >= MISSION_SPECIAL_BIGI_WAVE_CONFIRM_FRAMES
+                        ):
+                            wave20_seen = True
+                            # 극의는 Wave 20이 확정된 즉시 입력 통로를 미리
+                            # 열고 진행 바 30%를 고속 감시합니다.
+                            if self.mission_rank == "극의 임무":
+                                prepare_fast_tap_shell()
+                            if self.mission_rank == "극의 임무":
+                                self.log(
+                                    "극의 임무 3번 비기 Wave 20/20 2프레임 "
+                                    "교차확인 완료 → 진행 바 30% 고속 감시 시작"
+                                )
+                            else:
+                                self.log(
+                                    "임무 3번 비기 Wave 20/20 2프레임 "
+                                    "교차확인 완료 → 진행 바 끝 실시간 감시 시작"
+                                )
+                        else:
+                            wave_ready = False
+                    else:
+                        # 극의는 OCR 공백 한 프레임만으로 직전 정상 확인을
+                        # 버리지 않습니다. 명확한 다른 Wave 분자가 보이거나
+                        # 1초 동안 두 번째 정상 프레임이 없을 때만 초기화합니다.
+                        keep_extreme_partial_hit = (
+                            self.mission_rank == "극의 임무"
+                            and wave20_label_hits > 0
+                            and not conflicting_wave_seen
+                            and now_wave_check - wave20_last_hit_at <= 1.0
+                        )
+                        if not keep_extreme_partial_hit:
+                            wave20_label_hits = 0
+                            wave20_last_hit_at = 0.0
+                            self.special_bigi_wave20_watch_mode.clear()
+                        # 메인 전투가 제공하는 다음 새 프레임을 바로 검사합니다.
+                        # 기존 0.25초 제한은 0.22초 캡처와 엇갈려 사실상
+                        # 한 프레임씩 건너뛰었으므로 Wave 20 확정이 늦었습니다.
+                        next_wave_label_check_at = time.monotonic() + 0.08
+
+                # 극의도 Wave 20 표기 확정 뒤 현재 프레임의 진행 바가 실제
+                # 30% 지점을 통과할 때까지 wave_ready를 유지하지 않습니다.
+
+                # 진행 바 끝 번쩍임이 아직 없으면 얼굴 검색도 생략합니다.
+                # 상위 임무는 끝에 도달한 프레임에서 현재 허용 좌표의
+                # 3번 얼굴까지 확인합니다. 극의 임무는 1번 카드를 실제로
+                # 선택한 경우에만 이 감시 스레드가 시작되므로, Wave 20/20을
+                # 엄격히 확정한 뒤 HUD 얼굴을 다시 템플릿으로 검사하지 않습니다.
+                face_score = -1.0
+                face_is_three = False
+                if wave_ready:
+                    if self.mission_rank == "극의 임무":
+                        face_is_three = True
+                    else:
+                        face_found, _, _, face_score, face_name = (
+                            self.find_bigi_at_allowed_coordinate(
+                                allowed_center,
+                                threshold=BIGI_MATCH_THRESHOLD,
+                                screen=screen,
+                                only_deferred=True,
+                            )
+                        )
+                        face_is_three = (
+                            face_found and self.is_deferred_bigi_name(face_name)
+                        )
+                if wave_ready and face_is_three:
+                    condition_one_hits += 1
+                else:
+                    condition_one_hits = 0
+
+                # Wave 20은 위에서 이미 서로 다른 2프레임으로 확정했습니다.
+                # 극의 Wave 20은 위에서 교차확인됐으므로 즉시 확정합니다.
+                # 상위 임무는 기존 2프레임 확인을 유지합니다.
+                if condition_one_hits == 1:
+                    # 상위 임무의 두 번째 확인 전에도 입력 통로를 선행 준비합니다.
+                    prepare_fast_tap_shell()
+                required_condition_hits = (
+                    1 if self.mission_rank == "극의 임무" else 2
+                )
+                if condition_one_hits >= required_condition_hits:
+                    # 사용 조건을 잠그기 직전 현재 프레임의 Wave 표기를 다시
+                    # OCR합니다. 이전의 선감지가 잘못됐더라도 20/20이 아니면
+                    # 절대로 HP 감시나 비기 입력 단계로 넘어가지 않습니다.
+                    if self.mission_rank == "극의 임무":
+                        # 이미 서로 다른 두 프레임에서 엄격한 Wave OCR을
+                        # 통과했습니다. 전투 이펙트가 강한 마지막 프레임을
+                        # 다시 OCR해 정상 판정을 취소하지 않습니다.
+                        final_wave_ready = wave_ready
+                        final_sparkle_count = sparkle_count
+                        final_wave_seen = wave20_seen
+                    else:
+                        final_wave_ready, _, final_sparkle_count, final_wave_seen = (
+                            self._mission_wave20_end_ready(
+                                screen, wave20_already_seen=False
+                            )
+                        )
+                    if not (final_wave_seen and final_wave_ready):
+                        condition_one_hits = 0
+                        wave20_seen = False
+                        self.special_bigi_wave20_watch_mode.clear()
+                        wave20_label_hits = 0
+                        wave20_last_hit_at = 0.0
+                        next_wave_label_check_at = 0.0
+                        time.sleep(0.01)
+                        continue
+                    sparkle_count = final_sparkle_count
+                    condition_one_armed = True
+                    condition_armed_this_frame = True
+                    self.special_bigi_wave20_watch_mode.clear()
+                    prepare_fast_tap_shell()
+                    fast_mode_started_at = time.monotonic()
+                    self.special_bigi_hp_fast_mode.set()
+                    if self.mission_rank == "극의 임무":
+                        self.log(
+                            "극의 임무 3번 비기 사용 조건 확정: 1번 카드 선택 상태 + "
+                            "Wave 20/20 진행 바 30% 이상 → 즉시 사용"
+                        )
+                    else:
+                        self.log(
+                            "임무 3번 비기 1번 조건 확정: Wave 20/20 진행 바 끝 + "
+                            f"허용 좌표 얼굴 / 얼굴 일치율 {face_score:.3f} / "
+                            f"번쩍임 {sparkle_count}px → HP {hp_threshold} 이하 "
+                            "전체 범위 무대기 감시 시작"
+                        )
+                    # 동일 캡처 화면에서 즉시 HP를 검사합니다. 새 화면 재캡처 없음.
+                # 첫 유효 프레임을 찾은 뒤에는 2차 확인을 바로 수행해
+                # 조건 확정 중 HP가 6880까지 내려가는 일을 막습니다.
+                if not condition_one_armed:
+                    if condition_one_hits == 1:
+                        time.sleep(0.005)
+                    elif wave20_seen:
+                        time.sleep(0.01)
+                    else:
+                        time.sleep(0.03)
+                    continue
+
+            # 중요: 이 분기는 극의 Wave 20 또는 상위의 연속 2프레임
+            # 조건이 확정되어 잠긴 뒤에만 실행됩니다. Wave 20 끝 상태는
+            # 이전 Wave로 되돌아가지 않으므로,
+            # 0.1초 목표를 해치는 Wave/얼굴 재검색을 HP 경로에서 반복하지 않습니다.
+            # 메인 감시는 이 동안 중복 캡처를 하지 않습니다. 비정상 화면에서
+            # 영구 대기하지 않도록 30초가 지나면 메인 감시 우선권을 복구합니다.
+            now_monotonic = time.monotonic()
+            if (
+                self.special_bigi_hp_fast_mode.is_set()
+                and fast_mode_started_at > 0.0
+                and now_monotonic - fast_mode_started_at >= 30.0
+            ):
+                self.special_bigi_hp_fast_mode.clear()
+
+            # 메인 감시를 양보시키는 동안에도 동일 캡처로 완료/실패 화면을
+            # 확인해 HP 숫자가 사라진 결과 화면에서 전용 스레드가 남지 않게 합니다.
+            if (
+                not (
+                    self.mission_rank == "극의 임무"
+                    and condition_armed_this_frame
+                )
+                and now_monotonic - last_result_screen_check >= 0.5
+            ):
+                last_result_screen_check = now_monotonic
+                if self._match_on_screen(
+                    screen, NAV_TEMPLATES["mission_clear"], threshold=0.64
+                ) or self._match_on_screen(
+                    screen, NAV_TEMPLATES["mission_failed"], threshold=0.66
+                ):
+                    close_fast_tap_shell()
+                    return
+
+            # 극의는 Wave 20 진행 바 30%가 확정된 바로 이 프레임에서 HP OCR과
+            # 얼굴 재검사를 모두 생략합니다. 상위 임무만 기존 HP 조건을 유지합니다.
+            if self.mission_rank == "극의 임무":
+                hp_value, hp_readings = 0, ()
+            else:
+                hp_value, hp_readings = self._read_mission_hp_exact(screen)
+            # 완료/실패를 감지한 메인 스레드가 OCR 도중 감시를 취소했을 수
+            # 있습니다. 취소 뒤에는 결과 로그·학습 저장·입력을 수행하지 않습니다.
+            with self.special_bigi_monitor_lock:
+                monitor_cancelled = token != self.special_bigi_monitor_token
+            if monitor_cancelled:
+                close_fast_tap_shell()
+                return
+            now = time.time()
+            if hp_value is None:
+                if now - last_hp_log >= 3.0:
+                    self.log(
+                        "임무 3번 비기 HP 교차검증 불일치 → 사용 금지 / "
+                        f"OCR {hp_readings}"
+                    )
+                    last_hp_log = now
+                if now - last_hp_failure_capture >= 10.0:
+                    self.capture_learning_event(
+                        "mission_special_bigi_hp_ocr_failed",
+                        f"readings={hp_readings}",
+                        screen=screen,
+                    )
+                    last_hp_failure_capture = now
+                continue
+            hp_condition_met = (
+                True
+                if self.mission_rank == "극의 임무"
+                else hp_value <= hp_threshold
+            )
+            if not hp_condition_met:
+                if now - last_hp_log >= 3.0:
+                    self.log(
+                        f"임무 3번 비기 1번 조건 유지 / HP {hp_value} "
+                        f"(사용 기준 <= {hp_threshold})"
+                    )
+                    last_hp_log = now
+                continue
+
+            # 극의는 30% 조건, 상위는 기존 HP 조건이 끝난 시점입니다.
+            # 극의는 같은 최신 프레임으로 HUD 위치를 마지막 한 번 보정합니다.
+            # 별도 캡처나 sleep은 만들지 않으므로 입력 지연 없이 새 인법으로
+            # 내려간 얼굴 좌표를 누를 수 있습니다.
+            if self.mission_rank == "극의 임무":
+                self._refresh_extreme_bigi_hud_position(screen)
+            allowed_center = self._mission_bigi_allowed_center()
+            detected_at = time.perf_counter()
+            fast_dispatched = False
+            dispatched_shell = None
+            if fast_tap_shell is not None and fast_tap_shell.poll() is None:
+                try:
+                    command = (
+                        f"input tap {allowed_center[0]} "
+                        f"{allowed_center[1]}\n"
+                    ).encode("ascii")
+                    fast_tap_shell.stdin.write(command)
+                    fast_tap_shell.stdin.flush()
+                    # EOF를 보내면 Android shell이 앞의 탭을 처리한 뒤 정상 종료합니다.
+                    fast_tap_shell.stdin.close()
+                    fast_dispatched = True
+                    dispatched_shell = fast_tap_shell
+                    fast_tap_shell = None
+                except Exception:
+                    close_fast_tap_shell()
+
+            result = None
+            if not fast_dispatched:
+                result = self.run_adb(
+                    [
+                        "shell", "input", "tap",
+                        str(allowed_center[0]),
+                        str(allowed_center[1]),
+                    ],
+                    timeout=2,
+                    bypass_checkpoint=True,
+                )
+            clicked_at = time.perf_counter()
+            elapsed = clicked_at - detected_at
+            # 입력 지연 측정은 EOF 전송 시점에 끝내고, 종료된 adb shell 프로세스는
+            # 즉시 회수해 장시간 실행 시 프로세스 핸들이 쌓이지 않게 합니다.
+            if dispatched_shell is not None:
+                try:
+                    dispatched_shell.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    try:
+                        dispatched_shell.terminate()
+                        try:
+                            dispatched_shell.wait(timeout=0.3)
+                        except subprocess.TimeoutExpired:
+                            dispatched_shell.kill()
+                            dispatched_shell.wait(timeout=0.3)
+                    except Exception:
+                        pass
+                self._untrack_special_bigi_fast_tap_shell(
+                    token, dispatched_shell
+                )
+            if fast_dispatched or (result is not None and result.returncode == 0):
+                if self.mission_rank == "극의 임무":
+                    self.log(
+                        "극의 임무 3번 비기 Wave 20/20 진행 바 30% 충족 → "
+                        f"즉시 사용 {elapsed:.3f}초 / 좌표 "
+                        f"{allowed_center[0]}, {allowed_center[1]}"
+                    )
+                else:
+                    self.log(
+                        f"임무 3번 비기 2번 조건 확정: 최초 감지 HP {hp_value} "
+                        f"(사용 기준 <= {hp_threshold}) "
+                        f"→ 즉시 사용 {elapsed:.3f}초 / 좌표 "
+                        f"{allowed_center[0]}, {allowed_center[1]}"
+                    )
+                self.record_bigi_click_latency(
+                    "임무 3번", detected_at, clicked_at
+                )
+                if elapsed > 0.1:
+                    self.log(
+                        f"경고: 3번 비기 입력 시간이 0.1초를 초과했습니다({elapsed:.3f}초)"
+                    )
+                used, verify_screen, verify_score, verify_samples = (
+                    self._verify_mission_special_bigi_used()
+                )
+                if used is True:
+                    self.mission_special_bigi_used_event.set()
+                    absent_count = (
+                        3 if self.mission_rank == "극의 임무" else 2
+                    )
+                    self.log(
+                        "임무 3번 비기 사용 완료 확인 → 허용 좌표 얼굴이 "
+                        f"{absent_count}프레임 연속 사라짐 / 검사 {verify_samples}"
+                    )
+                    return
+                if used is None:
+                    self.log(
+                        "임무 3번 비기 사용 결과 판정 불가 → 중복 사용 방지를 위해 "
+                        f"자동 재입력하지 않음 / 검사 {verify_samples}"
+                    )
+                    self.capture_learning_event(
+                        "mission_special_bigi_use_uncertain",
+                        f"hp={hp_value}, latency={elapsed:.3f}, "
+                        f"scores={verify_samples}",
+                        screen=verify_screen,
+                    )
+                    return
+
+                # 허용 좌표에서 3번 얼굴이 3프레임 연속 그대로 검출된 경우만
+                # 실제 사용 실패로 확정하고 학습 데이터를 남긴 뒤 한 번 재입력합니다.
+                self.log(
+                    "오류: 임무 3번 비기 입력 후 얼굴이 3프레임 연속 남아 있음 "
+                    f"→ 사용 실패 확정 / 최고 일치율 {verify_score:.3f} / "
+                    f"검사 {verify_samples}"
+                )
+                self.capture_learning_event(
+                    "mission_special_bigi_use_failed",
+                    f"hp={hp_value}, latency={elapsed:.3f}, "
+                    f"score={verify_score:.3f}, scores={verify_samples}, retry=1",
+                    screen=verify_screen,
+                )
+                if self.mission_rank == "극의 임무":
+                    self._refresh_extreme_bigi_hud_position(verify_screen)
+                    allowed_center = self._mission_bigi_allowed_center()
+                retry_result = self.run_adb(
+                    [
+                        "shell", "input", "tap",
+                        str(allowed_center[0]),
+                        str(allowed_center[1]),
+                    ],
+                    timeout=2,
+                    bypass_checkpoint=True,
+                )
+                if retry_result.returncode != 0:
+                    self.log("임무 3번 비기 오류 복구 재입력 명령 실패")
+                    return
+                self.log("임무 3번 비기 사용 실패 학습 완료 → 허용 좌표 1회 재입력")
+                retry_used, retry_screen, retry_score, retry_samples = (
+                    self._verify_mission_special_bigi_used()
+                )
+                if retry_used is True:
+                    self.mission_special_bigi_used_event.set()
+                    self.log(
+                        "임무 3번 비기 재입력 후 사용 완료 확인 / "
+                        f"검사 {retry_samples}"
+                    )
+                elif retry_used is False:
+                    self.log(
+                        "오류: 임무 3번 비기 재입력 후에도 얼굴이 남아 있음 "
+                        "→ 추가 입력 중단 및 학습 데이터 저장"
+                    )
+                    self.capture_learning_event(
+                        "mission_special_bigi_retry_failed",
+                        f"hp={hp_value}, score={retry_score:.3f}, "
+                        f"scores={retry_samples}",
+                        screen=retry_screen,
+                    )
+                else:
+                    self.log("임무 3번 비기 재입력 결과 판정 불가 → 추가 입력 중단")
+                    self.capture_learning_event(
+                        "mission_special_bigi_retry_uncertain",
+                        f"hp={hp_value}, scores={retry_samples}",
+                        screen=retry_screen,
+                    )
+                return
+            self.log("임무 3번 비기 즉시 입력 실패 → 조건을 유지하고 재시도합니다.")
+            time.sleep(0.01)
+        close_fast_tap_shell()

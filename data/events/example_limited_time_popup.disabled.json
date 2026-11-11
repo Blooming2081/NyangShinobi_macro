@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "example_limited_time_popup",
+  "description": "예시 전용 — 실제 게임 이벤트 이미지와 다음 화면 검증이 없는 상태로 배포 금지",
+  "enabled": false,
+  "priority": 650,
+  "modeScope": [
+    "mission",
+    "mirror"
+  ],
+  "allowedPhases": [
+    "AfterDateChange",
+    "GlobalOverlay"
+  ],
+  "trigger": {
+    "allOf": [
+      {
+        "asset": "assets/events/example_limited_time_popup/title.png",
+        "roiNorm": [
+          0.05,
+          0.05,
+          0.95,
+          0.42
+        ],
+        "minConfidence": 0.9
+      }
+    ]
+  },
+  "steps": [
+    {
+      "action": "tap_detected",
+      "targetAsset": "assets/events/example_limited_time_popup/close.png",
+      "verifyNextScreen": "home_ready",
+      "oncePerAppearance": true
+    },
+    {
+      "action": "wait_for_screen",
+      "screenId": "home_ready",
+      "timeoutMs": 10000
+    }
+  ],
+  "completion": {
+    "screenId": "home_ready",
+    "onSuccess": "resume_previous_flow",
+    "onFailure": "needs_user_action"
+  },
+  "timeoutMs": 15000,
+  "retriggerCooldownMs": 3000
+}

@@ -1,0 +1,550 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L12129-L12675
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    @mirror_battle_active
+    def step5_6_loop(self):
+        self.log("거울 전투 감시 시작")
+        loop_restart_generation = self.restart_generation
+        last_dungeon_enter_click_at = 0.0
+        mirror_fast_cycle_logged = False
+        last_fast_tap_timeout_log_at = 0.0
+        mirror_card_layout_latched = False
+        mirror_card_latched_count = None
+        mirror_card_latched_signature = None
+        mirror_bigi_tap_pending = False
+        mirror_special_bigi_selected_pending = False
+        mirror_special_bigi_completed = False
+        mirror_bigi_completed_at = 0.0
+        mirror_bigi_reappearance_streak = 0
+        mirror_card_ready_count = None
+        mirror_card_ready_signature = None
+        mirror_card_ready_streak = 0
+        mirror_card_gate_started_at = 0.0
+        mirror_card_last_uncertain_log_at = 0.0
+        mirror_card_last_tap_at = 0.0
+        mirror_card_screen_active = False
+        last_mirror_capture_at = 0.0
+
+        while True:
+            self.checkpoint()
+
+            if self.recover_if_game_crashed("거울 진행 중"):
+                return "restarted"
+
+            if self.restart_generation != loop_restart_generation:
+                self.log("게임 재시작 확인 → 진행 중이던 거울 상태를 버리고 홈에서 다시 진입합니다.")
+                return "restarted"
+
+            capture_interval = (
+                MIRROR_CARD_CAPTURE_INTERVAL_SECONDS
+                if (
+                    mirror_card_screen_active
+                    or mirror_bigi_tap_pending
+                    or mirror_special_bigi_selected_pending
+                )
+                else MIRROR_BATTLE_CAPTURE_INTERVAL_SECONDS
+            )
+            capture_remaining = (
+                last_mirror_capture_at + capture_interval - time.monotonic()
+            )
+            if capture_remaining > 0.0:
+                if self.stop_event.wait(min(0.05, capture_remaining)):
+                    return
+                continue
+            stage_screen = self.adb_screencap()
+            last_mirror_capture_at = time.monotonic()
+
+            self.common_recovery_on_frame(stage_screen)
+
+            # 날짜 변경 팝업도 이번 사이클의 stage_screen 한 장으로 검사합니다.
+            # 캡처 제한 전에 별도 화면을 요청하면 일반 전투에서도 약 10FPS로
+            # screencap이 생성되어 BlueStacks 그래픽/ADB 자원이 누적됩니다.
+            if self.handle_date_changed_popup(screen=stage_screen):
+                continue
+
+            # 04:00 갱신 과정에서 완료된 기존 거울이 속성 선택 화면으로
+            # 돌아오면 전투 감시 루프에 머물지 말고 새 요일 설정으로 재진입합니다.
+            if self.resume_mirror_from_attribute_selection(stage_screen):
+                mirror_card_layout_latched = False
+                mirror_card_latched_count = None
+                mirror_card_latched_signature = None
+                mirror_card_ready_count = None
+                mirror_card_ready_signature = None
+                mirror_card_ready_streak = 0
+                mirror_card_screen_active = False
+                last_mirror_capture_at = 0.0
+                continue
+
+            # 다음 층 버튼은 클리어 후 대기 상태에서만 검사합니다. 전투 중에는
+            # 고속 사이클과 결과 판정만 수행해 불필요한 OpenCV 할당을 막습니다.
+            if self.mirror_waiting_for_next_floor:
+                found_enter, enter_x, enter_y, enter_val = self.find_nav_image(
+                    NAV_TEMPLATES["dungeon_enter"],
+                    threshold=0.64,
+                    screen=stage_screen,
+                )
+                if found_enter:
+                    now = time.time()
+                    if now - last_dungeon_enter_click_at < 5.0:
+                        time.sleep(0.20)
+                        continue
+                    self.log(
+                        f"다음 층 입장 버튼 발견 / 색상 일치율 {enter_val:.3f} "
+                        "→ 1회 클릭 후 화면 전환 확인"
+                    )
+                    self.adb_click(enter_x, enter_y)
+                    last_dungeon_enter_click_at = now
+
+                    enter_disappeared = False
+                    verify_deadline = time.time() + 4.0
+                    while time.time() < verify_deadline:
+                        self.checkpoint()
+                        time.sleep(0.25)
+                        verify_screen = self.adb_screencap()
+                        still_enter, _, _, _ = self.find_nav_image(
+                            NAV_TEMPLATES["dungeon_enter"],
+                            threshold=0.64,
+                            screen=verify_screen,
+                        )
+                        if not still_enter:
+                            # 버튼이 사라진 직후 로딩 프레임을 전환 완료로
+                            # 오인하지 않습니다. 다음 층의 카드 화면 또는
+                            # Wave 1/3~3/3 HUD가 실제로 나타난 뒤에만 대기
+                            # 상태를 해제합니다.
+                            found_next_card, _, _, _ = (
+                                self.find_mirror_skill_confirm(
+                                    screen=verify_screen
+                                )
+                            )
+                            next_mode = None
+                            if not found_next_card:
+                                next_mode, _ = (
+                                    self._detect_active_battle_mode_frame(
+                                        verify_screen
+                                    )
+                                )
+                            if found_next_card or next_mode == "음양의 거울":
+                                enter_disappeared = True
+                                self.mirror_waiting_for_next_floor = False
+                                self.log(
+                                    "다음 층 전환 완료 확인 → 거울 전투 감시 계속"
+                                )
+                                break
+                    if not enter_disappeared:
+                        self.log(
+                            "다음 층 입장 버튼이 남아 있음 → 연속 클릭하지 않고 "
+                            "5초 재시도 제한을 적용합니다."
+                        )
+                else:
+                    # 4초 확인 제한이 끝난 뒤 화면 전환이 늦게 완료되면
+                    # 입장 버튼은 이미 사라졌지만 waiting 상태만 남을 수
+                    # 있습니다. 이때 실제 다음 층 카드/HUD를 확인하고
+                    # 상태를 복구해 카드 처리 루틴으로 바로 이어갑니다.
+                    transitioned = False
+                    if last_dungeon_enter_click_at > 0.0:
+                        found_next_card, _, _, _ = (
+                            self.find_mirror_skill_confirm(
+                                screen=stage_screen
+                            )
+                        )
+                        next_mode = None
+                        if not found_next_card:
+                            next_mode, _ = (
+                                self._detect_active_battle_mode_frame(
+                                    stage_screen
+                                )
+                            )
+                        transitioned = (
+                            found_next_card
+                            or next_mode == "음양의 거울"
+                        )
+                    if transitioned:
+                        self.mirror_waiting_for_next_floor = False
+                        self.log(
+                            "지연된 다음 층 전환 확인 → 대기 상태 해제 후 "
+                            "거울 진행을 계속합니다."
+                        )
+                    else:
+                        time.sleep(0.05)
+                        continue
+
+                # 입장 버튼이 아직 남아 있거나 다음 층 카드/HUD가 확인되지
+                # 않은 동안에는 기존 결과 화면을 전투/카드 화면으로 처리하지
+                # 않습니다. 전환이 확정된 경우에만 아래 루틴으로 내려갑니다.
+                if self.mirror_waiting_for_next_floor:
+                    time.sleep(0.05)
+                    continue
+
+            if self.mirror_repeat_mode == "임의 반복":
+                # 기존 별도 버전과 동일하게 결과만 검사한 뒤 카드/비기 좌표
+                # 24개를 화면 종류와 무관하게 0.05초 간격으로 전부 입력합니다.
+                # 화면당 6입력으로 제한했던 이전 별도버전-3 구현은 사용하지 않습니다.
+                screen_h = stage_screen.shape[0]
+                result_region = stage_screen[
+                    int(screen_h * 0.18):int(screen_h * 0.33), :
+                ]
+                found8, _, _, _ = self.find_battle_image(
+                    self.image_path(8), threshold=0.68, screen=result_region
+                )
+                found6, _, _, _ = self.find_battle_image(
+                    self.image_path(6), screen=result_region
+                )
+                if found8:
+                    self.mirror_waiting_for_next_floor = False
+                    self.image8_fail_count += 1
+                    self.log(
+                        f"거울 실패 화면 발견 → 복구 진행 ({self.image8_fail_count}/10)"
+                    )
+                    if self.image8_fail_count >= 10:
+                        self.log("거울 실패 누적 10회 → 실패 카운트 초기화")
+                        self.image8_fail_count = 0
+                    if self._dismiss_mirror_failure(stage_screen):
+                        return "step4"
+                    continue
+                if found6:
+                    if self.image8_fail_count > 0:
+                        self.log(
+                            f"거울 클리어 확인 → 실패 카운트 초기화 "
+                            f"({self.image8_fail_count} → 0)"
+                        )
+                        self.image8_fail_count = 0
+                    self.mirror_waiting_for_next_floor = True
+                    self.log("거울 클리어 확인 → 완료 처리")
+                    for _ in range(2):
+                        self._adb_click_mirror_reference(
+                            239, 1254, screen=stage_screen
+                        )
+                        time.sleep(0.25)
+                    return "done"
+
+                for chunk_start in range(
+                    0, len(MIRROR_RANDOM_TAP_CYCLE), MIRROR_RANDOM_TAP_CHUNK_SIZE
+                ):
+                    self.checkpoint()
+                    try:
+                        self._run_mirror_random_tap_chunk(stage_screen, chunk_start)
+                    except subprocess.TimeoutExpired:
+                        now = time.time()
+                        if now - last_fast_tap_timeout_log_at >= 15.0:
+                            self.log(
+                                "거울 임의 반복 입력 응답 지연 → 이번 사이클을 "
+                                "중단하고 다음 화면부터 다시 시도합니다."
+                            )
+                            last_fast_tap_timeout_log_at = now
+                        break
+                if not mirror_fast_cycle_logged:
+                    self.log(
+                        "거울 임의 반복 시작: 비기 좌표 포함 "
+                        f"{len(MIRROR_RANDOM_TAP_CYCLE)}개 입력을 "
+                        f"{MIRROR_RANDOM_TAP_INTERVAL_SECONDS:.2f}초 간격으로 "
+                        f"{MIRROR_RANDOM_TAP_CHUNK_SIZE}개씩 연속 전송"
+                    )
+                    mirror_fast_cycle_logged = True
+                time.sleep(0.005)
+                continue
+
+            # 카드 화면의 오른쪽 카드 아이콘은 HUD 얼굴 검사 영역과 겹칩니다.
+            # 실제 4장 화염 카드 화면에서 염폭술 아이콘이 발광 얼굴로 1718px
+            # 오인됐으므로, 같은 프레임의 확인 버튼을 먼저 검사해 카드 화면인
+            # 동안에는 HUD 비기 얼굴 판정을 절대 실행하지 않습니다.
+            found5_gate, _, _, confirm_score = self.find_mirror_skill_confirm(
+                screen=stage_screen
+            )
+            # 확인 버튼이 잠깐 숨거나 비활성화돼도 실제 카드 패널이 남아
+            # 있으면 오른쪽 카드를 HUD 얼굴로 오인해 434,427을 누르지 않습니다.
+            panel_count = None
+            if not found5_gate:
+                panel_count, _, _, _ = self._detect_mirror_card_layout(
+                    stage_screen
+                )
+
+            if mirror_special_bigi_completed and not found5_gate and panel_count is None:
+                if time.monotonic() - mirror_bigi_completed_at >= 0.6:
+                    face_again, _, _ = self._detect_mirror_bigi_hud_face(stage_screen)
+                    mirror_bigi_reappearance_streak = (
+                        mirror_bigi_reappearance_streak + 1 if face_again else 0
+                    )
+                    if mirror_bigi_reappearance_streak >= 2:
+                        mirror_special_bigi_completed = False
+                        mirror_bigi_reappearance_streak = 0
+                        self.log(
+                            "거울 비기 완료 판정 뒤 전투 화면에서 발광 얼굴 재확인 "
+                            "→ 완료 상태 취소 후 사용을 다시 확인합니다."
+                        )
+
+            # 카드 화면이 아닌 전투 프레임의 허용 좌표 얼굴은 추가 대기 없이
+            # 즉시 클릭합니다. 클릭 후 카드 화면으로 전환되는 경쟁 상황은
+            # _use_mirror_bigi_and_verify에서도 다시 차단합니다.
+            if (
+                self.bigi_enabled
+                and not mirror_special_bigi_completed
+                and not found5_gate
+                and panel_count is None
+            ):
+                face_present, _, face_center = (
+                    self._detect_mirror_bigi_hud_face(stage_screen)
+                )
+                if face_present:
+                    self.checkpoint()
+                    use_confirmed = self._use_mirror_bigi_and_verify(
+                        initial_center=face_center, initial_screen=stage_screen
+                    )
+                    if use_confirmed:
+                        mirror_bigi_tap_pending = False
+                        mirror_special_bigi_selected_pending = False
+                        mirror_special_bigi_completed = True
+                        mirror_bigi_completed_at = time.monotonic()
+                        self.log(
+                            "거울 허용 좌표 비기 얼굴 감지 즉시 사용 및 확인 완료 "
+                            "→ 이번 거울의 비기 카드·얼굴 검색 종료"
+                        )
+                    else:
+                        mirror_bigi_tap_pending = True
+                    continue
+
+            # 위에서 확인한 동일 프레임의 카드 화면 판정을 그대로 재사용합니다.
+            detected_count = None
+            layout_score = 0.0
+            layout_margin = 0.0
+            layout_signature = None
+            if found5_gate:
+                detected_count, layout_score, layout_margin, layout_signature = (
+                    self._detect_mirror_card_layout(stage_screen)
+                )
+            # 성공/실패 문구가 표시되는 상단 결과 영역만 비교해 전체 화면
+            # matchTemplate 반복으로 인한 OpenCV 임시 메모리 사용을 줄입니다.
+            screen_h = stage_screen.shape[0]
+            result_region = stage_screen[
+                int(screen_h * 0.18):int(screen_h * 0.33), :
+            ]
+            found8, x8, y8, _ = self.find_battle_image(
+                self.image_path(8), threshold=0.68, screen=result_region
+            )
+            found6, x6, y6, _ = self.find_battle_image(
+                self.image_path(6), screen=result_region
+            )
+
+            if found8:
+                self.mirror_waiting_for_next_floor = False
+                self.image8_fail_count += 1
+                self.log(f"거울 실패 화면 발견 → 복구 진행 ({self.image8_fail_count}/10)")
+                if self.image8_fail_count >= 10:
+                    self.log("거울 실패 누적 10회 → 실패 카운트 초기화")
+                    self.image8_fail_count = 0
+                if self._dismiss_mirror_failure(stage_screen):
+                    return "step4"
+                continue
+
+            if found6:
+                if self.mirror_waiting_for_next_floor:
+                    time.sleep(0.05)
+                    continue
+                if self.image8_fail_count > 0:
+                    self.log(f"거울 클리어 확인 → 실패 카운트 초기화 ({self.image8_fail_count} → 0)")
+                    self.image8_fail_count = 0
+                self.mirror_waiting_for_next_floor = True
+                self.log("거울 클리어 확인 → 완료 처리")
+                for _ in range(2):
+                    self._adb_click_mirror_reference(239, 1254, screen=stage_screen)
+                    time.sleep(0.25)
+                return "done"
+
+            # 위에서 HUD 얼굴과 카드가 겹치는지 판정할 때 얻은 동일 프레임의
+            # 확인 버튼/배치 결과를 그대로 재사용해 추가 캡처와 판정 차이를
+            # 만들지 않습니다.
+            if found5_gate:
+                mirror_card_screen_active = True
+
+                # 확인 버튼이 카드보다 먼저 나타나는 실제 녹화 결과를 반영합니다.
+                # 카드 수와 내부 영상이 두 프레임 연속 안정된 뒤에만 입력합니다.
+                ready_now = time.monotonic()
+                if mirror_card_gate_started_at <= 0.0:
+                    mirror_card_gate_started_at = ready_now
+                if detected_count is None:
+                    mirror_card_ready_count = None
+                    mirror_card_ready_signature = None
+                    mirror_card_ready_streak = 0
+                    if (
+                        ready_now - mirror_card_gate_started_at
+                        < MIRROR_CARD_RENDER_WAIT_TIMEOUT_SECONDS
+                    ):
+                        continue
+                    if ready_now - mirror_card_last_uncertain_log_at >= 5.0:
+                        self.log(
+                            "거울 카드 수 판정 보류 → 카드 선택·확인 입력 중단, "
+                            f"다음 프레임 재검사 / 최고 배치 점수 {layout_score:.3f} "
+                            f"/ 점수 차 {layout_margin:.3f}"
+                        )
+                        mirror_card_last_uncertain_log_at = ready_now
+                    continue
+                else:
+                    ready_delta = 1.0
+                    if (
+                        mirror_card_ready_count == detected_count
+                        and mirror_card_ready_signature is not None
+                        and layout_signature is not None
+                        and layout_signature.size
+                        == mirror_card_ready_signature.size
+                    ):
+                        ready_delta = float(np.mean(
+                            np.abs(
+                                layout_signature.astype(np.int16)
+                                - mirror_card_ready_signature.astype(np.int16)
+                            ).astype(np.float32) / 255.0
+                        ))
+                        if (
+                            ready_delta
+                            <= MIRROR_CARD_READY_MAX_SIGNATURE_DELTA
+                        ):
+                            mirror_card_ready_streak += 1
+                        else:
+                            mirror_card_ready_streak = 1
+                    else:
+                        mirror_card_ready_streak = 1
+                    mirror_card_ready_count = detected_count
+                    mirror_card_ready_signature = layout_signature
+                    if (
+                        mirror_card_ready_streak
+                        < MIRROR_CARD_READY_CONFIRM_FRAMES
+                    ):
+                        continue
+
+                signature_changed = False
+                signature_delta = 0.0
+                if (
+                    mirror_card_latched_signature is not None
+                    and layout_signature is not None
+                    and layout_signature.size == mirror_card_latched_signature.size
+                ):
+                    signature_diff = (
+                        np.abs(
+                            layout_signature.astype(np.int16)
+                            - mirror_card_latched_signature.astype(np.int16)
+                        ).astype(np.float32) / 255.0
+                    )
+                    signature_delta = float(np.mean(signature_diff))
+                    # 동일한 4장 배치라도 1/3 → 2/3처럼 카드 내용이 바뀌면
+                    # 새 선택 화면입니다. 카드 내부 평균 변화와 큰 국소 변화를
+                    # 함께 확인해 전투 배경 애니메이션에는 재입력하지 않습니다.
+                    signature_changed = (
+                        signature_delta >= 0.025
+                        or float(np.percentile(signature_diff, 90)) >= 0.10
+                    )
+
+                # 같은 카드 화면에는 한 번만 입력합니다. 카드 수가 같더라도
+                # 1/3 → 2/3처럼 카드 내부 내용이 바뀌면 다음 선택 화면으로 인정해
+                # 새 입력 묶음을 허용합니다.
+                is_new_layout = (
+                    not mirror_card_layout_latched
+                    or (
+                        detected_count is not None
+                        and detected_count != mirror_card_latched_count
+                    )
+                    or signature_changed
+                    or (
+                        detected_count is not None
+                        and detected_count == mirror_card_latched_count
+                        and time.monotonic() - mirror_card_last_tap_at
+                        >= MIRROR_CARD_RETRY_SECONDS
+                    )
+                )
+                if is_new_layout:
+                    special_card_found_this_layout = False
+                    special_center = None
+                    if detected_count is None:
+                        # 카드 수가 불확실한 상태에서는 정확히 두 장을 보장할 수
+                        # 없으므로 아무 좌표도 누르지 않고 다음 프레임을 기다립니다.
+                        continue
+                    else:
+                        ordered_centers = list(
+                            MIRROR_CARD_LAYOUT_CENTERS[detected_count]
+                        )
+                        special_index = None
+                        special_score = 0.0
+                        if not mirror_special_bigi_completed:
+                            special_index, special_score = (
+                                self._detect_mirror_special_card_position(
+                                    stage_screen, detected_count
+                                )
+                            )
+                        if special_index is not None:
+                            special_card_found_this_layout = True
+                            special_center = ordered_centers.pop(special_index)
+                            ordered_centers.insert(0, special_center)
+                            self.log(
+                                "거울 비기 카드 구조 감지 → "
+                                f"{special_index + 1}번째 카드를 최우선 선택 "
+                                f"/ 판정값 {special_score:.3f}"
+                            )
+                        selection_limit = 2 if detected_count > 1 else 1
+                        already_selected = [
+                            center_x for center_x in ordered_centers
+                            if self._is_mirror_card_selected(
+                                stage_screen, center_x
+                            )[0]
+                        ]
+                        selection_centers = already_selected[:selection_limit]
+                        selection_centers.extend(
+                            center_x for center_x in ordered_centers
+                            if center_x not in already_selected
+                        )
+                        selection_centers = selection_centers[:selection_limit]
+                        special_card_found_this_layout = (
+                            special_center is not None
+                            and special_center in selection_centers
+                        )
+                        layout_label = (
+                            f"카드 {detected_count}장 감지 / 배치 점수 {layout_score:.3f} "
+                            f"/ 내용 변화 {signature_delta:.3f} "
+                            f"→ 선택 {len(selection_centers)}장 확인 후 확인 버튼 1회"
+                        )
+                    try:
+                        self.checkpoint()
+                        # 비기 카드가 있으면 ordered_centers의 맨 앞으로 이미
+                        # 이동되어 있습니다. 필요한 모든 카드를 한 번의 묶음으로
+                        # 누른 뒤 결과 프레임 한 장에서 전체 테두리를 확인합니다.
+                        if not self._select_mirror_cards_fast_and_verify(
+                            selection_centers, stage_screen
+                        ):
+                            mirror_card_ready_streak = 0
+                            mirror_card_layout_latched = False
+                            continue
+
+                        if special_card_found_this_layout:
+                            mirror_special_bigi_selected_pending = True
+                            mirror_bigi_tap_pending = True
+
+                        # 모든 필요한 카드에 초록 선택 테두리가 확인된 뒤에만
+                        # 확인을 눌러 입력 누락과 선택 해제를 함께 막습니다.
+                        self._adb_click_mirror_reference(240, 794, screen=stage_screen)
+                        mirror_card_last_tap_at = time.monotonic()
+                        mirror_card_layout_latched = True
+                        mirror_card_latched_count = detected_count
+                        mirror_card_latched_signature = layout_signature
+                        if not mirror_fast_cycle_logged:
+                            self.log(
+                                "거울 적응형 반복 시작: 카드 수에 맞는 좌표만 "
+                                f"{MIRROR_CARD_TAP_INTERVAL_SECONDS:.2f}초 간격으로 입력"
+                            )
+                            mirror_fast_cycle_logged = True
+                        self.log(f"거울 고속 입력: {layout_label}")
+                    except subprocess.TimeoutExpired:
+                        now = time.time()
+                        if now - last_fast_tap_timeout_log_at >= 15.0:
+                            self.log(
+                                "거울 고속 입력 응답 지연 → 오류로 중단하지 않고 "
+                                "다음 화면을 다시 확인합니다."
+                            )
+                            last_fast_tap_timeout_log_at = now
+            else:
+                mirror_card_screen_active = panel_count is not None
+                mirror_card_layout_latched = False
+                mirror_card_latched_count = None
+                mirror_card_latched_signature = None
+                mirror_card_ready_count = None
+                mirror_card_ready_signature = None
+                mirror_card_ready_streak = 0
+                mirror_card_gate_started_at = 0.0
+                mirror_card_last_tap_at = 0.0
+
+            time.sleep(0.005)

@@ -1,0 +1,38 @@
+# READ-ONLY EXCERPT: v2.0.6 run_gui.py L11899-L11933
+# NOT EXECUTABLE AS STANDALONE; DO NOT COPY RECOVERY / WATCHDOG CALLS INTO v0.1
+
+    def _dismiss_mirror_failure(self, screen):
+        """실패 제목과 하단 확인 버튼을 함께 확인하고 닫힘까지 검증합니다."""
+        deadline = time.monotonic() + 8.0
+        next_click_at = 0.0
+        absent_frames = 0
+        while time.monotonic() < deadline:
+            self.checkpoint()
+            if screen is None or screen.size == 0 or float(np.std(screen[::8, ::8])) < 8.0:
+                absent_frames = 0
+            else:
+                h = screen.shape[0]
+                failed, _, _, _ = self.find_battle_image(
+                    self.image_path(8), threshold=0.68,
+                    screen=screen[int(h * 0.18):int(h * 0.33), :],
+                )
+                if not failed:
+                    absent_frames += 1
+                    if absent_frames >= 2:
+                        self.log("거울 실패 결과 화면 닫힘 확인 완료")
+                        return True
+                else:
+                    absent_frames = 0
+                    found, x, y, score = self.find_nav_image_near(
+                        self.image_path(9), MISSION_FAIL_OK_RATIO,
+                        (0.16, 0.045), threshold=0.80, screen=screen,
+                    )
+                    if found and time.monotonic() >= next_click_at:
+                        self.log(f"거울 실패 하단 확인 버튼 발견 / 일치율 {score:.3f}")
+                        self.adb_click(x, y)
+                        next_click_at = time.monotonic() + 1.5
+            if self.stop_event.wait(0.25):
+                raise MacroStopped()
+            screen = self._raw_screencap(max_cache_age=0.0)
+        self.log("거울 실패 결과가 아직 남아 있음 → 결과 화면 감시 유지")
+        return False

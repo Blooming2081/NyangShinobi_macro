@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/nyangshinobi/schemas/event.v0.1.schema.json",
+  "title": "NyangShinobi v0.1 safe event overlay definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "enabled",
+    "priority",
+    "trigger",
+    "steps",
+    "completion"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,64}$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 400,
+      "maximum": 899
+    },
+    "modeScope": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "mission",
+          "mirror",
+          "neko_ninja",
+          "any"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "allowedPhases": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "GlobalOverlay",
+          "AfterDateChange",
+          "BeforeModeStep",
+          "AfterModeStep"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allOf"
+      ],
+      "properties": {
+        "allOf": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "asset",
+              "roiNorm",
+              "minConfidence"
+            ],
+            "properties": {
+              "asset": {
+                "type": "string",
+                "pattern": "^assets/events/"
+              },
+              "roiNorm": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "minConfidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "maxItems": 8,
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "action",
+              "targetAsset"
+            ],
+            "properties": {
+              "action": {
+                "const": "tap_detected"
+              },
+              "targetAsset": {
+                "type": "string",
+                "pattern": "^assets/events/"
+              },
+              "verifyNextScreen": {
+                "type": "string",
+                "minLength": 1
+              },
+              "oncePerAppearance": {
+                "const": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "action",
+              "screenId",
+              "timeoutMs"
+            ],
+            "properties": {
+              "action": {
+                "const": "wait_for_screen"
+              },
+              "screenId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 500,
+                "maximum": 30000
+              }
+            }
+          }
+        ]
+      }
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screenId",
+        "onSuccess",
+        "onFailure"
+      ],
+      "properties": {
+        "screenId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "onSuccess": {
+          "const": "resume_previous_flow"
+        },
+        "onFailure": {
+          "const": "needs_user_action"
+        }
+      }
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 30000
+    },
+    "retriggerCooldownMs": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 600000
+    }
+  }
+}

@@ -1,0 +1,748 @@
+{
+  "version": "v0.1",
+  "sourceOfTruth": "v2.0.6/app/run_gui.py",
+  "flowRules": {
+    "defaultIdleCaptureIntervalMs": 3000,
+    "postTapFirstVerificationMs": 500,
+    "transientFramesUseStateScopedPolicy": true,
+    "unknownState": "NeedsUserAction"
+  },
+  "mission": {
+    "firstEntrySequence": [
+      "M01",
+      "M02",
+      "M03",
+      "M04",
+      "M05",
+      "M06",
+      "M07",
+      "M08"
+    ],
+    "afterSuccessSequence": [
+      "M14:next_stage",
+      "M14:preset",
+      "M06",
+      "M07",
+      "M08"
+    ],
+    "priorityWithinBattleFrame": [
+      "verify_pending_tap",
+      "compute_card_protection",
+      "roulette_ok",
+      "roulette_skip",
+      "roulette_card_guard",
+      "mission_card",
+      "mission_failed",
+      "mission_success_title_plus_mission_clear"
+    ],
+    "steps": [
+      {
+        "id": "M01",
+        "label": "Home mission entry",
+        "evidence": [
+          "mission"
+        ],
+        "action": "tap_mission_button",
+        "next": "M02",
+        "source": "enter_mission_from_home:8319-8371"
+      },
+      {
+        "id": "M02",
+        "label": "Confirm mission entry screen",
+        "evidence": [
+          "mission_enter",
+          "rank_tabs"
+        ],
+        "action": "verify_mission_entry_screen",
+        "next": "M03",
+        "source": "enter_mission_from_home:8319-8371"
+      },
+      {
+        "id": "M03",
+        "label": "Select mission rank",
+        "evidence": [
+          "rank_lower",
+          "rank_upper",
+          "rank_extreme"
+        ],
+        "action": "ensure_mission_rank",
+        "next": "M04",
+        "source": "ensure_mission_rank:7789-7826"
+      },
+      {
+        "id": "M04",
+        "label": "Select preset",
+        "evidence": [
+          "preset_slot",
+          "preset_list"
+        ],
+        "action": "choose_preset_auto_or_number_or_keep",
+        "next": "M05",
+        "source": "select_configured_mission_character_preset:8286-8317",
+        "notes": "auto lower=2 upper=1 extreme=10; 6-10 bottom-aligned"
+      },
+      {
+        "id": "M05",
+        "label": "Next stage if enabled",
+        "evidence": [
+          "stage_arrow",
+          "stage_panel"
+        ],
+        "action": "click_and_verify_if_option_enabled",
+        "next": "M06",
+        "source": "click_next_stage_if_enabled:7903-7987",
+        "notes": "Initial entry order M04 -> M05"
+      },
+      {
+        "id": "M06",
+        "label": "Enter stage",
+        "evidence": [
+          "mission_enter"
+        ],
+        "action": "tap_and_verify_combat_or_first_cards",
+        "next": "M07",
+        "source": "enter_mission_from_home:8319-8371"
+      },
+      {
+        "id": "M07",
+        "label": "First skill",
+        "evidence": [
+          "reroll",
+          "mission_three_card_layout",
+          "extreme_acquired_layout"
+        ],
+        "action": "select_mission_skill",
+        "next": "M08",
+        "source": "select_left_mission_skill:10492-10553"
+      },
+      {
+        "id": "M08",
+        "label": "Battle frame branching",
+        "evidence": [
+          "mission_card",
+          "roulette_skip",
+          "roulette_ok",
+          "mission_failed",
+          "mission_success_title"
+        ],
+        "action": "evaluate_M09_M10_M11_M12_in_source_priority",
+        "next": "M08",
+        "source": "run_one_mission:10556-11161",
+        "notes": "pending tap -> card protection -> roulette confirm/skip -> card -> failure -> success"
+      },
+      {
+        "id": "M09",
+        "label": "Roulette branch",
+        "evidence": [
+          "roulette_ok",
+          "roulette_skip"
+        ],
+        "action": "confirm_or_skip_then_confirm",
+        "next": "M08",
+        "source": "run_one_mission:10830-10943",
+        "notes": "temporary shorter polling after skip"
+      },
+      {
+        "id": "M10",
+        "label": "Skill card branch",
+        "evidence": [
+          "reroll",
+          "card_layout"
+        ],
+        "action": "priority_match_then_reroll_or_left",
+        "next": "M08",
+        "source": "select_mission_skill:10250-10490"
+      },
+      {
+        "id": "M11",
+        "label": "Failure result",
+        "evidence": [
+          "mission_failed",
+          "mission_clear"
+        ],
+        "action": "dismiss_failure_then_update_streak",
+        "next": "M13",
+        "source": "run_one_mission:11030-11085"
+      },
+      {
+        "id": "M12",
+        "label": "Success result",
+        "evidence": [
+          "mission_success_title",
+          "mission_clear"
+        ],
+        "action": "handle_optional_double_reward_then_confirm_success",
+        "next": "M12A_if_reward_detected_else_M14",
+        "source": "run_one_mission:11085-11161",
+        "notes": "only after same-frame success title+clear; if reward disabled/not shown click clear directly",
+        "gate": "success_title_and_mission_clear_same_frame"
+      },
+      {
+        "id": "M12A",
+        "label": "Optional double reward advertisement",
+        "evidence": [
+          "mission_success_title",
+          "mission_clear",
+          "mission_double_reward"
+        ],
+        "action": "tap_reward_once_then_confirm_transition_then_re_detect_success_and_fresh_confirm",
+        "next": "M14",
+        "source": "click_mission_success_confirmation:4002-4116",
+        "gate": "same_frame_confirmed_success_and_reward_enabled_and_reward_icon_in_roi",
+        "notes": "Do not click stale confirm coordinates; wait up to 45s for distinct transition and returned success; if unresolved NeedsUserAction. Click does not prove reward grant."
+      },
+      {
+        "id": "M13",
+        "label": "After failure",
+        "evidence": [
+          "failure_streak",
+          "extreme_bigi_used"
+        ],
+        "action": "retry_mission_or_switch_to_mirror",
+        "next": "M01_or_R01",
+        "source": "mission_worker_loop:11163-11318",
+        "notes": "extreme no bigi used -> retry; no auto restart"
+      },
+      {
+        "id": "M14",
+        "label": "After success",
+        "evidence": [
+          "level_up_popup_if_any",
+          "mission_entry_screen"
+        ],
+        "action": "stop_or_nextStage_then_preset_then_enter",
+        "next": "M06_or_STOP",
+        "source": "mission_worker_loop:11163-11318",
+        "notes": "After success order nextStage -> preset -> enter (different from first entry)"
+      }
+    ],
+    "doubleReward": {
+      "optInBySetting": "mission.doubleReward.enabled",
+      "defaultEnabled": true,
+      "sourceFunction": "click_mission_success_confirmation",
+      "image": "assets/images_nav/mission_double_reward.png",
+      "referenceResolution": [
+        480,
+        1320
+      ],
+      "iconCenter": [
+        94,
+        1251
+      ],
+      "iconTolerance": [
+        55,
+        42
+      ],
+      "buttonTapCenter": [
+        146,
+        1251
+      ],
+      "templateThresholdSourceCandidate": 0.7,
+      "transitionWaitSecondsSourceCandidate": 45,
+      "startGate": [
+        "mission_success_title",
+        "mission_clear"
+      ],
+      "afterTap": [
+        "wait_550ms",
+        "observe_distinct_transition",
+        "wait_for_success_title_plus_new_clear",
+        "tap_fresh_confirm"
+      ],
+      "whenButtonAbsent": "tap_regular_mission_clear_without_extra_wait",
+      "whenTimeout": "NeedsUserAction_no_automatic_reclick",
+      "rewardGranted": "not_proven_by_button_click_or_return_to_success"
+    }
+  },
+  "mirror": {
+    "entrySequence": [
+      "R01",
+      "R02",
+      "R03",
+      "R04",
+      "R05",
+      "R06"
+    ],
+    "selectRepeatSequence": [
+      "R06",
+      "R07",
+      "R08",
+      "R09",
+      "R10",
+      "R11"
+    ],
+    "cardLayoutCenters480": {
+      "4": [
+        64,
+        181,
+        299,
+        417
+      ],
+      "3": [
+        84,
+        240,
+        397
+      ],
+      "2": [
+        123,
+        357
+      ],
+      "1": [
+        240
+      ]
+    },
+    "characterSlots480": [
+      [
+        434,
+        456
+      ],
+      [
+        434,
+        510
+      ],
+      [
+        434,
+        564
+      ],
+      [
+        434,
+        619
+      ],
+      [
+        434,
+        673
+      ],
+      [
+        434,
+        727
+      ],
+      [
+        434,
+        781
+      ],
+      [
+        434,
+        835
+      ],
+      [
+        434,
+        889
+      ],
+      [
+        434,
+        943
+      ]
+    ],
+    "cardConfirm480": [
+      240,
+      794
+    ],
+    "randomTapCycle480": [
+      [
+        64,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        181,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        299,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        417,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        434,
+        427
+      ],
+      [
+        84,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        240,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        397,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        434,
+        427
+      ],
+      [
+        123,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        357,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        434,
+        427
+      ],
+      [
+        240,
+        551
+      ],
+      [
+        240,
+        794
+      ],
+      [
+        434,
+        427
+      ]
+    ],
+    "steps": [
+      {
+        "id": "R01",
+        "label": "Home trial",
+        "evidence": [
+          "home_trial"
+        ],
+        "action": "tap_trial",
+        "next": "R02",
+        "source": "enter_from_home:7358-7389"
+      },
+      {
+        "id": "R02",
+        "label": "Mirror training",
+        "evidence": [
+          "mirror_training"
+        ],
+        "action": "tap_training",
+        "next": "R03",
+        "source": "enter_from_home:7358-7389"
+      },
+      {
+        "id": "R03",
+        "label": "Attribute selection",
+        "evidence": [
+          "mirror_fire",
+          "mirror_beast",
+          "mirror_wind",
+          "mirror_earth",
+          "mirror_water",
+          "mirror_thunder"
+        ],
+        "action": "tap_configured_attribute",
+        "next": "R04",
+        "source": "enter_from_home:7358-7389"
+      },
+      {
+        "id": "R04",
+        "label": "Character selection",
+        "evidence": [
+          "character_slots_1_to_10"
+        ],
+        "action": "tap_selected_character",
+        "next": "R05",
+        "source": "character_click:7185-7210"
+      },
+      {
+        "id": "R05",
+        "label": "Enter mirror",
+        "evidence": [
+          "dungeon_enter"
+        ],
+        "action": "tap_entry_then_verify",
+        "next": "R06",
+        "source": "enter_from_home:7358-7389"
+      },
+      {
+        "id": "R06",
+        "label": "Mirror battle observe",
+        "evidence": [
+          "mirror_card_confirm",
+          "mirror_card_layout",
+          "mirror_failed",
+          "mirror_success_candidate",
+          "bigi_hud"
+        ],
+        "action": "evaluate_R07_R08_R09_R10",
+        "next": "R06",
+        "source": "step5_6_loop:12130-12675",
+        "notes": "check next floor first if waiting; card gate before HUD face"
+      },
+      {
+        "id": "R07",
+        "label": "Select mirror cards",
+        "evidence": [
+          "image5",
+          "mirror_card_layout_4_3_2_1"
+        ],
+        "action": "choose_2_or_1_then_confirm",
+        "next": "R06",
+        "source": "step5_6_loop:12430-12675",
+        "notes": "prefer special card; stable 2 frames"
+      },
+      {
+        "id": "R08",
+        "label": "Use mirror bigi when allowed",
+        "evidence": [
+          "bigi_hud",
+          "NOT_mirror_card"
+        ],
+        "action": "tap_allowed_bigi_hud_then_verify",
+        "next": "R06",
+        "source": "step5_6_loop:12295-12420"
+      },
+      {
+        "id": "R09",
+        "label": "Mirror failed",
+        "evidence": [
+          "image8",
+          "image9"
+        ],
+        "action": "dismiss_failed_then_step4_retry_entry",
+        "next": "R06",
+        "source": "step5_6_loop:12435-12475; step4:11321-11370",
+        "notes": "no automatic home recovery if re-entry unavailable"
+      },
+      {
+        "id": "R10",
+        "label": "Mirror complete candidate",
+        "evidence": [
+          "image6",
+          "ADDITIONAL_VERIFIED_COMPLETE_EVIDENCE"
+        ],
+        "action": "confirm_complete_then_wait_next_floor",
+        "next": "R11",
+        "source": "step5_6_loop:12455-12485",
+        "notes": "unverified image6; do not execute without additional validated screen cue"
+      },
+      {
+        "id": "R11",
+        "label": "Next floor",
+        "evidence": [
+          "dungeon_enter"
+        ],
+        "action": "tap_once_verify_card_or_hud",
+        "next": "R06",
+        "source": "step5_6_loop:12165-12255"
+      },
+      {
+        "id": "R12",
+        "label": "Random repeat optional",
+        "evidence": [
+          "result_safety_gate"
+        ],
+        "action": "perform_24_tap_cycle_then_reobserve",
+        "next": "R06",
+        "source": "step5_6_loop:12256-12330",
+        "notes": "P1 explicit user selection only"
+      }
+    ]
+  },
+  "nekoNinja": {
+    "entryAssumption": "user_opens_neko_ninja_summon_screen_before_start",
+    "startMode": "neko_ninja",
+    "referenceResolution": [
+      480,
+      1320
+    ],
+    "tapCenter": [
+      305,
+      1164
+    ],
+    "tapControl": "one_verified_tap_per_screen_transition",
+    "sequence": [
+      "N01",
+      "N02",
+      "N03",
+      "N01"
+    ],
+    "sourceFunctions": [
+      "detect_neko_ninja_summon",
+      "detect_neko_ninja_result",
+      "neko_ninja_summon_loop"
+    ],
+    "roiDetection": {
+      "summonPage": {
+        "file": "assets/images_nav/neko_ninja_summon.png",
+        "rois480": [
+          [
+            34,
+            140,
+            230,
+            186
+          ],
+          [
+            252,
+            1136,
+            360,
+            1190
+          ],
+          [
+            399,
+            1250,
+            473,
+            1315
+          ]
+        ],
+        "minCorrelation": 0.9,
+        "maxMeanColorError": 25.0,
+        "aggregate": "minimum"
+      },
+      "result": {
+        "file": "assets/images_nav/neko_ninja_result.png",
+        "rois480": [
+          [
+            34,
+            140,
+            230,
+            186
+          ],
+          [
+            170,
+            970,
+            312,
+            994
+          ]
+        ],
+        "minCorrelation": 0.9,
+        "maxMeanColorError": 20.0,
+        "aggregate": "all"
+      }
+    },
+    "steps": [
+      {
+        "id": "N01",
+        "label": "Detect summon or result screen",
+        "evidence": [
+          "neko_ninja_summon_3_rois",
+          "neko_ninja_result_2_rois"
+        ],
+        "action": "branch_by_evidence_no_tap_on_unknown",
+        "next": "N02_or_N03_or_NeedsUserAction",
+        "source": "neko_ninja_summon_loop:12713-12730"
+      },
+      {
+        "id": "N02",
+        "label": "10-pull button",
+        "evidence": [
+          "summon_screen_3_rois"
+        ],
+        "action": "tap_305_1164_scaled_once_then_verify_after_500ms",
+        "next": "N01",
+        "source": "neko_ninja_summon_loop:12713-12730"
+      },
+      {
+        "id": "N03",
+        "label": "Result continue",
+        "evidence": [
+          "result_screen_2_rois"
+        ],
+        "action": "tap_305_1164_scaled_once_then_verify_after_500ms",
+        "next": "N01",
+        "source": "neko_ninja_summon_loop:12713-12730"
+      }
+    ],
+    "defaultCapturePolicy": "3s_wait_with_500ms_post_tap_first_verify_not_legacy_50ms_continuous_poll",
+    "stop": "manual_stop_at_any_step",
+    "currencyUsage": "10_pulls_consume_game_currency;explicit_mode_selection_required"
+  },
+  "globalInterrupts": {
+    "priorityOrder": [
+      "cancellation",
+      "pending_input_verification",
+      "date_change",
+      "enabled_event_handlers",
+      "active_mode"
+    ],
+    "processing": "same_captured_frame_without_recapture",
+    "dateChange": {
+      "id": "D01-D07",
+      "asset": "assets/images_nav/date_changed.png",
+      "resumePolicy": {
+        "mission": "home_then_mission_flow",
+        "mirror": "recompute_04h_schedule_then_home_then_mirror_flow",
+        "neko_ninja": "needs_user_action"
+      },
+      "source": "handle_date_changed_popup:7532-7587, wait_for_home_refresh_after_date_change:7588-7668",
+      "steps": [
+        {
+          "id": "D01",
+          "check": "date_changed modal in known region",
+          "then": "reserve frame and suspend active mode"
+        },
+        {
+          "id": "D02",
+          "action": "tap date changed OK only once at normalized 240,769; verify closed"
+        },
+        {
+          "id": "D03",
+          "action": "recompute schedule at Windows local time minus 4 hours"
+        },
+        {
+          "id": "D04",
+          "action": "wait for home refresh; close known daily followup popup at normalized 440,49 if detected"
+        },
+        {
+          "id": "D05",
+          "action": "probe and handle enabled AfterDateChange events during home wait (overlay may obstruct home)"
+        },
+        {
+          "id": "D06",
+          "action": "require two consecutive home-ready frames or NeedsUserAction at timeout"
+        },
+        {
+          "id": "D07",
+          "action": "resume previous game mode from home using refreshed schedule"
+        }
+      ]
+    },
+    "events": {
+      "extensionPoints": [
+        "GlobalOverlay",
+        "AfterDateChange",
+        "BeforeModeStep",
+        "AfterModeStep"
+      ],
+      "selectionPolicy": "enabled AND scope matches AND evidence verified; one handler max per frame",
+      "fallback": "NeedsUserAction"
+    }
+  }
+}
