@@ -2,6 +2,7 @@
 **/[Bb]in/
 **/[Oo]bj/
 **/TestResults/
+# Portable publish folders, ZIPs and validation reports
 /artifacts/
 *.trx
 *.coverage

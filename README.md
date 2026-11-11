@@ -4,6 +4,8 @@ Windows x64 · C# · .NET 10 · WPF 신규 개발 프로젝트입니다. 현재 
 
 7개 본체 프로젝트와 4개 xUnit 테스트 프로젝트가 `NyangShinobi.slnx`에 포함됩니다. 설계의 최종 권위는 [아키텍처](docs/10_ARCHITECTURE.md)와 [프로젝트 참조 명세](data/architecture.v0.1.json)입니다.
 
+**사용자 PC 실행:** Windows x64 [포터블 배포 안내](docs/PORTABLE_DISTRIBUTION.md)와 [실제 배포 검증 기록](docs/PORTABLE_VERIFICATION.md)을 참조하세요. ZIP을 폴더 전체로 풀어 EXE를 실행하며, .NET SDK/Runtime을 별도로 설치하지 않습니다. 아래 SDK 명령은 개발 PC용입니다.
+
 개발·Codex 작업은 [통합 시작 안내](docs/START_HERE.md)와 [AGENTS.md](AGENTS.md)를 먼저 읽습니다. 기존 루트의 시작 안내 두 문서는 통합했으며, 과거 설계 변경 이력은 [docs/changelog/](docs/changelog/)로 옮겼습니다.
 
 ## 폴더 구성
@@ -25,6 +27,8 @@ NyangShinobi/
 │   ├── TASK01_FOUNDATION.md
 │   ├── TASK02_CAPTURE_VISION.md
 │   ├── TASK02_DIAGNOSTICS.md
+│   ├── PORTABLE_DISTRIBUTION.md
+│   ├── PORTABLE_VERIFICATION.md
 │   └── changelog/                     # 과거 설계 변경 이력 2개
 ├── src/
 │   ├── NyangShinobi.App/
@@ -43,7 +47,10 @@ NyangShinobi/
 ├── data/                              # 기계 판독 명세와 기본 설정
 ├── assets/                            # 원본 이미지
 ├── reference/legacy_v206_methods/      # 읽기 전용 v2.0.6 참조
-├── tools/validate_spec.py              # Git으로 관리하는 검증 도구
+├── tools/
+│   ├── validate_spec.py                # Git으로 관리하는 명세 검증 도구
+│   └── Publish-Portable.ps1            # Release 검증 / 자체 포함 게시 / ZIP
+├── artifacts/portable/                 # 배포 폴더·ZIP·검증 결과, Git 제외
 ├── .tools/                            # 로컬 SDK/캐시, Git 제외
 └── TestResults/                        # 테스트 생성물, Git 제외
 ```
@@ -51,6 +58,8 @@ NyangShinobi/
 각 프로젝트의 `bin/`·`obj/`, 로컬 IDE 상태·사용자 설정·로그도 Git에서 제외합니다. `.tools/`와 `tools/`는 용도가 다른 별도 폴더입니다.
 
 ## 빌드와 실행
+
+배포 ZIP은 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/Publish-Portable.ps1`로 생성합니다. 출력은 `artifacts/portable/<시각>/NyangShinobi-v0.1.0-win-x64.zip`입니다. 게시 및 ZIP 재압축 해제 폴더에서 EXE의 `--verify-portable` 검사가 모두 통과해야 스크립트가 성공합니다.
 
 `global.json`에 지정한 .NET SDK 10.0.404의 동일 feature band 패치와 Windows x64 환경이 필요합니다.
 

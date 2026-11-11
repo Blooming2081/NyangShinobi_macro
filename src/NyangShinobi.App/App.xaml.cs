@@ -3,6 +3,8 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using NyangShinobi.App.ViewModels;
 using NyangShinobi.App.Views;
+using NyangShinobi.App.Diagnostics;
+using System.Text.Json;
 
 namespace NyangShinobi.App;
 
@@ -13,6 +15,22 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.Length == 1 && e.Args[0] == "--verify-portable")
+        {
+            try
+            {
+                using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var result = await PortableValidation.VerifyAsync(AppContext.BaseDirectory, cancellation.Token);
+                await Console.Out.WriteLineAsync(JsonSerializer.Serialize(result));
+                Shutdown(0);
+            }
+            catch (Exception exception)
+            {
+                await Console.Error.WriteLineAsync(exception.ToString());
+                Shutdown(1);
+            }
+            return;
+        }
         try
         {
             var defaults = Path.Combine(AppContext.BaseDirectory, "data", "settings.default.v0.1.json");

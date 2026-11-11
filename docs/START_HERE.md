@@ -6,6 +6,8 @@
 
 WPF **개발자 진단** 탭에 입력 없는 수동 장치 조회·PNG 캡처·에셋/ROI 일치율 측정·명시적 PNG 저장을 추가했습니다. [진단 안내](TASK02_DIAGNOSTICS.md)를 따라 실제 장치에서 검증할 수 있습니다. 임계값을 바꾸거나 Task 03을 실행하지 않습니다.
 
+Windows x64 자체 포함 ZIP 생성과 새 PC 실행은 [포터블 배포 안내](PORTABLE_DISTRIBUTION.md)를 따릅니다. SDK는 개발 PC에만 필요하며 배포 폴더에 .NET 런타임·WPF·OpenCV·에셋·기본 JSON을 포함합니다.
+
 ## 먼저 읽을 순서
 
 1. [AGENTS.md](../AGENTS.md)
