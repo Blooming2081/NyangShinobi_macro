@@ -1,0 +1,20 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/NyangShinobi.Domain/NyangShinobi.Domain.csproj" />
+    <Project Path="src/NyangShinobi.Contracts/NyangShinobi.Contracts.csproj" />
+    <Project Path="src/NyangShinobi.Application/NyangShinobi.Application.csproj" />
+    <Project Path="src/NyangShinobi.Features/NyangShinobi.Features.csproj" />
+    <Project Path="src/NyangShinobi.Vision.OpenCvSharp/NyangShinobi.Vision.OpenCvSharp.csproj" />
+    <Project Path="src/NyangShinobi.Device.Adb/NyangShinobi.Device.Adb.csproj" />
+    <Project Path="src/NyangShinobi.App/NyangShinobi.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NyangShinobi.Domain.Tests/NyangShinobi.Domain.Tests.csproj" />
+    <Project Path="tests/NyangShinobi.Application.Tests/NyangShinobi.Application.Tests.csproj" />
+    <Project Path="tests/NyangShinobi.Features.Tests/NyangShinobi.Features.Tests.csproj" />
+    <Project Path="tests/NyangShinobi.Integration.Tests/NyangShinobi.Integration.Tests.csproj" />
+  </Folder>
+</Solution>

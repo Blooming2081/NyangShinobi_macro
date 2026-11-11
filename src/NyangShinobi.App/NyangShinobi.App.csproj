@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <OutputType>WinExe</OutputType>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NyangShinobi.Application/NyangShinobi.Application.csproj" />
+    <ProjectReference Include="../NyangShinobi.Features/NyangShinobi.Features.csproj" />
+    <ProjectReference Include="../NyangShinobi.Vision.OpenCvSharp/NyangShinobi.Vision.OpenCvSharp.csproj" />
+    <ProjectReference Include="../NyangShinobi.Device.Adb/NyangShinobi.Device.Adb.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <Content Include="../../data/settings.default.v0.1.json" Link="data/settings.default.v0.1.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

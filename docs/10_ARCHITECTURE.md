@@ -11,7 +11,9 @@
 - 확장 모듈은 실행 중 DLL 다운로드/동적 로딩이 아니라 **소스코드와 DI 등록에 의한 모듈화**. 게임 이벤트 단순 팝업만 스키마 검증된 JSON 정의 허용.
 - `Domain`, `Contracts`, `Application`은 `OpenCvSharp`, `WPF`, `adb.exe` 구현을 참조하지 않음.
 
-## 권장 저장소 구조 (Codex Task 01에서 실제 생성할 구조)
+## 권장 저장소 구조 (Task 01 골격 및 후속 Task 구현 계획)
+
+문서의 이동·통합만 반영했으며 프로젝트 경계와 후속 구현 계획은 유지한다. 아래 소스 트리에는 후속 Task에서 생성할 파일도 포함된다. 현재 구현 상태는 [Task 01 결과](TASK01_FOUNDATION.md)를 참조한다.
 
 ```text
 NyangShinobi/
@@ -19,18 +21,23 @@ NyangShinobi/
 ├── Directory.Build.props                  # nullable, analyzers, version, deterministic
 ├── Directory.Packages.props               # NuGet 버전 중앙 관리
 ├── global.json                            # SDK 10.0.x 고정(개발 PC에 맞춰 실존 버전으로)
+├── NuGet.Config                           # 저장소 NuGet 소스
 ├── .editorconfig
 ├── .gitignore
 ├── AGENTS.md
-├── README_CODEX_FIRST.md
+├── README.md                              # 현재 상태 / 빌드 / 실행 / 저장소 안내
 ├── docs/
+│   ├── START_HERE.md                      # 개발·Codex 시작 안내 통합
 │   ├── 01_SCOPE.md ... 09_DOUBLE_REWARD.md
 │   ├── 10_ARCHITECTURE.md
 │   ├── 11_EVENT_EXTENSION.md
 │   ├── 12_DATE_CHANGE.md
 │   ├── 13_CONTRACTS_AND_SETTINGS.md
 │   ├── 14_ROADMAP_AND_TESTS.md
-│   └── 15_ARCHITECTURE_DECISIONS.md
+│   ├── 15_ARCHITECTURE_DECISIONS.md
+│   ├── 16_EVENT_IMPLEMENTATION_CHECKLIST.md
+│   ├── TASK01_FOUNDATION.md
+│   └── changelog/                         # 과거 설계 변경 이력
 ├── data/                                  # 설계의 기계 판독용 데이터
 │   ├── architecture.v0.1.json
 │   ├── workflows.v0.1.json

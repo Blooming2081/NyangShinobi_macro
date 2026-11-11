@@ -1,3 +1,3 @@
 # NyangShinobi.Application.Tests
 
-Codex Task 01에서 xUnit 프로젝트를 만들고 fixture/fake ADB를 사용한다. 실제 앱플레이어 테스트는 별도.
+Task 01에서 xUnit v3 프로젝트를 구성했습니다. 기본 JSON 설정/오류/사용자 설정 우선순위 및 세션 중지/취소를 검증합니다.

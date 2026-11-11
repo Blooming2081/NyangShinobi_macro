@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../NyangShinobi.Domain/NyangShinobi.Domain.csproj" />
+    <ProjectReference Include="../NyangShinobi.Contracts/NyangShinobi.Contracts.csproj" />
+  </ItemGroup>
+</Project>

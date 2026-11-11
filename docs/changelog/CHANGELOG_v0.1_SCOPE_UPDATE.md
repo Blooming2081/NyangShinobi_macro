@@ -1,4 +1,4 @@
-> **역사적 변경 기록 — 현재 최종 범위는 `CHANGELOG_v0.1_FINAL_ARCHITECTURE.md`, `docs/01_SCOPE.md`, `docs/12_DATE_CHANGE.md` 기준. 날짜 변경 자동 처리는 최종 v0.1에 포함됨.**
+> **역사적 변경 기록 — 현재 최종 범위는 [최종 아키텍처 변경 이력](CHANGELOG_v0.1_FINAL_ARCHITECTURE.md), [범위](../01_SCOPE.md), [날짜 변경](../12_DATE_CHANGE.md) 기준. 날짜 변경 자동 처리는 최종 v0.1에 포함됨.** 아래 백틱 경로는 저장소 루트 기준입니다.
 
 # v0.1 기능 범위 업데이트 — 네코 뽑기 / 2배 광고
 

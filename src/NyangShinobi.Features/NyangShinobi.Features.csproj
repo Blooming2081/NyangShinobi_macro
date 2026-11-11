@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../NyangShinobi.Application/NyangShinobi.Application.csproj" />
+    <ProjectReference Include="../NyangShinobi.Contracts/NyangShinobi.Contracts.csproj" />
+    <ProjectReference Include="../NyangShinobi.Domain/NyangShinobi.Domain.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+</Project>

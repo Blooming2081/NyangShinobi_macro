@@ -1,3 +1,3 @@
 # NyangShinobi.Features.Tests
 
-Codex Task 01에서 xUnit 프로젝트를 만들고 fixture/fake ADB를 사용한다. 실제 앱플레이어 테스트는 별도.
+Task 01에서 xUnit v3 프로젝트를 구성했습니다. 실행 불가 모드 골격과 임무·거울을 수정하지 않는 이벤트 DI 등록을 검증합니다.

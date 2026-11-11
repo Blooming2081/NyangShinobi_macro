@@ -1,0 +1,31 @@
+# .NET build and test output
+**/[Bb]in/
+**/[Oo]bj/
+**/TestResults/
+/artifacts/
+*.trx
+*.coverage
+*.coveragexml
+
+# Local SDK/CLI/NuGet cache. tools/ contains tracked validation scripts.
+/.tools/
+
+# Local IDE state
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local settings, captures and logs
+*.log
+settings.v0.1.json
+screenshots/
+
+# Python and OS-generated files
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db

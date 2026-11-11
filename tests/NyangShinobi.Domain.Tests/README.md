@@ -1,3 +1,3 @@
 # NyangShinobi.Domain.Tests
 
-Codex Task 01에서 xUnit 프로젝트를 만들고 fixture/fake ADB를 사용한다. 실제 앱플레이어 테스트는 별도.
+Task 01에서 xUnit v3 프로젝트를 구성했습니다. 프레임 스냅샷 소유권과 버퍼/정규화 좌표 계약을 검증합니다.
