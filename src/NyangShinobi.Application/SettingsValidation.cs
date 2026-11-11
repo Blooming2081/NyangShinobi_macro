@@ -19,5 +19,7 @@ public static class SettingsValidation
         if (settings.Capture.DefaultIdleIntervalMs <= 0 || settings.Capture.PostTapVerifyDelayMs <= 0 ||
             settings.NekoNinja.MaxTenPullCycles < 0)
             throw new InvalidDataException("검사 시간은 양수, 뽑기 횟수는 0 이상이어야 합니다.");
+        if (settings.Capture.Method != "adb_png")
+            throw new InvalidDataException("Task 02는 PNG 캡처만 지원합니다. RAW는 성능 검증 전 활성화할 수 없습니다.");
     }
 }

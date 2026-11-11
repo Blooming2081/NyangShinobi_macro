@@ -2,7 +2,9 @@
 
 기존 루트의 `START_HERE.md`와 `README_CODEX_FIRST.md`를 통합한 안내입니다. 명령과 백틱 안의 저장소 경로는 **저장소 루트 기준**이며, Markdown 링크는 이 문서의 위치를 기준으로 연결합니다.
 
-현재 **Task 01 프로젝트 골격**이 완료되었습니다. 본체 7개 프로젝트와 테스트 4개, 시작/중지 WPF UI, 설정 파싱, 핵심 계약과 DI가 있습니다. 실제 게임 진행·ADB 캡처·이미지 인식은 미구현입니다. 빌드·실행 방법은 [루트 README](../README.md), 구현과 검증 내역은 [Task 01 결과](TASK01_FOUNDATION.md)를 참조하세요.
+현재 **Task 01 골격 + Task 02 캡처·입력·인식 기반**이 구현되었습니다. 본체 7개 프로젝트와 테스트 4개를 유지합니다. ADB PNG 캡처, 명시적 serial 입력, OpenCvSharp ROI 매칭과 공통 프레임 정책은 API로 제공하며, UI 시작 버튼은 여전히 게임 입력 없는 골격 세션만 제어합니다. 빌드·실행 방법은 [루트 README](../README.md), 구현과 검증 내역은 [Task 01 결과](TASK01_FOUNDATION.md)와 [Task 02 결과](TASK02_CAPTURE_VISION.md)를 참조하세요. 실제 게임 진행과 실기 성능·정확도 검증은 아직 수행하지 않았습니다.
+
+WPF **개발자 진단** 탭에 입력 없는 수동 장치 조회·PNG 캡처·에셋/ROI 일치율 측정·명시적 PNG 저장을 추가했습니다. [진단 안내](TASK02_DIAGNOSTICS.md)를 따라 실제 장치에서 검증할 수 있습니다. 임계값을 바꾸거나 Task 03을 실행하지 않습니다.
 
 ## 먼저 읽을 순서
 
@@ -13,7 +15,7 @@
 5. [이벤트 확장](11_EVENT_EXTENSION.md) / [계약과 설정](13_CONTRACTS_AND_SETTINGS.md)
 6. [화면 에셋](04_SCREEN_ASSETS.md) / [화면 카탈로그](../data/screen_catalog.v0.1.json) / [워크플로](../data/workflows.v0.1.json) / [모듈](../data/modules.v0.1.json)
 7. [수락 테스트](06_TESTS.md) / [로드맵](14_ROADMAP_AND_TESTS.md) / [설계 결정](15_ARCHITECTURE_DECISIONS.md) / [이벤트 체크리스트](16_EVENT_IMPLEMENTATION_CHECKLIST.md)
-8. 사용자가 지정한 [tasks/](../tasks/)의 작업만 진행합니다. Task 01 완료만으로 Task 02를 자동으로 시작하지 않습니다.
+8. 사용자가 지정한 [tasks/](../tasks/)의 작업만 진행합니다. Task 02 완료만으로 Task 03을 자동으로 시작하지 않습니다.
 
 [docs/05_IMPLEMENTATION.md](05_IMPLEMENTATION.md)의 4개 프로젝트 구조는 과거 초안입니다. 최종 권위는 `docs/10_ARCHITECTURE.md`와 `data/architecture.v0.1.json`입니다. 이전 `macro_opt`나 v3 초안은 기능 기준이 아닙니다.
 

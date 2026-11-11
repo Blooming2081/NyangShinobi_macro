@@ -1,0 +1,78 @@
+<UserControl x:Class="NyangShinobi.App.Diagnostics.DiagnosticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" MinHeight="140" />
+    </Grid.RowDefinitions>
+    <StackPanel>
+      <TextBlock FontSize="20" FontWeight="SemiBold" Text="개발자 진단 · 화면 읽기 전용" />
+      <TextBlock Margin="0,6,0,12" TextWrapping="Wrap"
+                 Text="일반 실행을 중지한 뒤 장치를 직접 선택하고 수동으로 캡처하세요. 터치·스와이프·자동 저장은 없습니다. 일치율만 측정하며 임계값이나 게임 성공 판정은 변경하지 않습니다." />
+    </StackPanel>
+    <Grid Grid.Row="1" Margin="0,0,0,10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" Text="ADB 경로" />
+      <TextBox Grid.Column="1" Text="{Binding AdbPath, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEdit}"
+               AutomationProperties.AutomationId="DiagnosticAdbPath" />
+      <Button Grid.Column="2" Margin="8,0,0,0" Padding="10,3" Content="찾기…" Click="BrowseAdb" IsEnabled="{Binding CanEdit}" />
+    </Grid>
+    <Grid Grid.Row="2" Margin="0,0,0,10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Button Content="장치 조회" Padding="10,3" Command="{Binding DevicesCommand}" AutomationProperties.AutomationId="DiagnosticDevices" />
+      <ComboBox Grid.Column="1" Margin="8,0" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
+                IsEnabled="{Binding CanEdit}" IsSynchronizedWithCurrentItem="False" AutomationProperties.AutomationId="DiagnosticDeviceSelector">
+        <ComboBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{Binding Serial}" /><TextBlock Margin="12,0,0,0" Text="{Binding State}" />
+            </StackPanel>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <Button Grid.Column="2" Content="스크린샷" Padding="10,3" Command="{Binding CaptureCommand}" AutomationProperties.AutomationId="DiagnosticCapture" />
+      <Button Grid.Column="3" Content="PNG 저장…" Padding="10,3" Margin="8,0,0,0" Click="SaveCapture" IsEnabled="{Binding CanSave}"
+              AutomationProperties.AutomationId="DiagnosticSave" />
+    </Grid>
+    <Grid Grid.Row="3" Margin="0,0,0,10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Button Content="에셋 목록" Padding="10,3" Command="{Binding AssetsCommand}" />
+      <ComboBox Grid.Column="1" Margin="8,0" ItemsSource="{Binding Assets}" SelectedItem="{Binding SelectedAsset}"
+                DisplayMemberPath="TemplateId" IsTextSearchEnabled="True" IsEnabled="{Binding CanEdit}"
+                IsSynchronizedWithCurrentItem="False" AutomationProperties.AutomationId="DiagnosticAssetSelector" />
+      <Button Grid.Column="2" Content="인식 테스트" Padding="10,3" Command="{Binding MatchCommand}" AutomationProperties.AutomationId="DiagnosticMatch" />
+    </Grid>
+    <WrapPanel Grid.Row="4" Margin="0,0,0,10">
+      <TextBlock Text="정규화 ROI (0~1)" VerticalAlignment="Center" Margin="0,0,12,0" />
+      <TextBlock Text="왼쪽" VerticalAlignment="Center" />
+      <TextBox Width="52" Margin="6,0,12,0" Text="{Binding RoiLeft, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEdit}" />
+      <TextBlock Text="위" VerticalAlignment="Center" />
+      <TextBox Width="52" Margin="6,0,12,0" Text="{Binding RoiTop, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEdit}" />
+      <TextBlock Text="오른쪽" VerticalAlignment="Center" />
+      <TextBox Width="52" Margin="6,0,12,0" Text="{Binding RoiRight, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEdit}" />
+      <TextBlock Text="아래" VerticalAlignment="Center" />
+      <TextBox Width="52" Margin="6,0,12,0" Text="{Binding RoiBottom, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEdit}" />
+      <Button Content="진단 취소" Padding="10,3" Command="{Binding CancelCommand}" />
+    </WrapPanel>
+    <StackPanel Grid.Row="5" Margin="0,0,0,10">
+      <TextBlock Text="{Binding CaptureSummary}" TextWrapping="Wrap" AutomationProperties.AutomationId="DiagnosticCaptureSummary" />
+      <TextBlock Text="{Binding MatchSummary}" TextWrapping="Wrap" Margin="0,6,0,0" AutomationProperties.AutomationId="DiagnosticMatchSummary" />
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="#555555" />
+    </StackPanel>
+    <Border Grid.Row="6" Background="#202020" Padding="8">
+      <Image Source="{Binding Preview}" Stretch="Uniform" AutomationProperties.AutomationId="DiagnosticPreview" />
+    </Border>
+  </Grid>
+</UserControl>

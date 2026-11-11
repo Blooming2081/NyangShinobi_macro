@@ -25,6 +25,11 @@ public sealed class CompositionTests
         Assert.Empty(services.GetRequiredService<IEventRegistry>().Handlers);
         Assert.Equal(3, services.GetServices<IGameFlow>().Select(flow => flow.Mode).Distinct().Count());
         Assert.Same(services.GetRequiredService<MacroSession>(), services.GetRequiredService<MacroSession>());
+        using var first = services.CreateScope();
+        using var second = services.CreateScope();
+        Assert.Same(first.ServiceProvider.GetRequiredService<FrameScheduler>(), first.ServiceProvider.GetRequiredService<FrameScheduler>());
+        Assert.NotSame(first.ServiceProvider.GetRequiredService<FrameScheduler>(), second.ServiceProvider.GetRequiredService<FrameScheduler>());
+        Assert.NotNull(first.ServiceProvider.GetRequiredService<InputSequencer>());
     }
 
     [Fact]
@@ -61,19 +66,19 @@ public sealed class CompositionTests
     }
 
     [Fact]
-    public async Task UnimplementedAdaptersCannotReportSuccessfulActions()
+    public async Task InvalidDeviceSelectionCannotReportSuccessfulActions()
     {
         using var services = CreateProvider();
         var capture = services.GetRequiredService<IScreenCapture>();
         var input = services.GetRequiredService<IInputController>();
-        await Assert.ThrowsAsync<NotSupportedException>(() => capture.CaptureAsync("unused", TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<NotSupportedException>(() => input.TapAsync("unused", new(0.5, 0.5), TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<NotSupportedException>(() => input.SwipeAsync("unused", new(0.1, 0.1),
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => capture.CaptureAsync("", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => input.TapAsync("", new(0.5, 0.5), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => input.SwipeAsync("", new(0.1, 0.1),
             new(0.5, 0.5), TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => input.TapAsync("unused", new(0.5, 0.5), new(true)));
         var frame = new ImageFrame(1, DateTimeOffset.UtcNow, 1, 1, 4, new byte[4]);
-        Assert.Throws<NotSupportedException>(() => services.GetRequiredService<IVisionEngine>()
-            .Detect(frame, new("unimplemented", new(new(0, 0), new(1, 1)), 0.8)));
+        await Assert.ThrowsAsync<InvalidDataException>(() => services.GetRequiredService<IVisionEngine>()
+            .DetectAsync(frame, new("unimplemented", new(new(0, 0), new(1, 1)), 0.8), TestContext.Current.CancellationToken));
     }
 
     private sealed class ForbiddenDevice : IScreenCapture, IInputController, IVisionEngine

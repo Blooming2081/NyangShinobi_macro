@@ -1,12 +1,15 @@
 <Window x:Class="NyangShinobi.App.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="냥냥시노비 v0.1" Width="620" Height="380" MinWidth="560" MinHeight="360"
+        xmlns:diagnostics="clr-namespace:NyangShinobi.App.Diagnostics"
+        Title="냥냥시노비 v0.1" Width="960" Height="800" MinWidth="780" MinHeight="700"
         WindowStartupLocation="CenterScreen">
-  <StackPanel Margin="28">
+  <TabControl>
+    <TabItem Header="실행">
+      <StackPanel Margin="28">
     <TextBlock Text="냥냥시노비 v0.1" FontSize="24" FontWeight="SemiBold" />
     <TextBlock Margin="0,12,0,18" TextWrapping="Wrap"
-               Text="Task 01 · 프로젝트 골격. 시작/중지와 설정 로드를 확인합니다. 게임 화면 인식과 자동 입력은 구현되지 않았습니다." />
+               Text="Task 02 · 현재 시작/중지는 골격 세션만 제어합니다. 게임 진행과 자동 입력은 실행하지 않습니다." />
     <TextBlock Text="모드 (Mission: 임무 / Mirror: 거울 / NekoNinja: 네코 닌자)" />
     <ComboBox Margin="0,6,0,10" ItemsSource="{Binding AvailableModes}"
               SelectedItem="{Binding SelectedMode}" IsEnabled="{Binding CanStart}"
@@ -21,5 +24,10 @@
     </StackPanel>
     <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.AutomationId="SessionStatus" />
     <TextBlock Margin="0,8,0,0" Text="{Binding SettingsSummary}" Foreground="#555555" />
-  </StackPanel>
+      </StackPanel>
+    </TabItem>
+    <TabItem Header="개발자 진단" AutomationProperties.AutomationId="DiagnosticsTab">
+      <diagnostics:DiagnosticsView DataContext="{Binding Diagnostics}" />
+    </TabItem>
+  </TabControl>
 </Window>

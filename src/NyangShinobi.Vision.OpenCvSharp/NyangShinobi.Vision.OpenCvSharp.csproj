@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="OpenCvSharp5.Windows" />
     <ProjectReference Include="../NyangShinobi.Contracts/NyangShinobi.Contracts.csproj" />
     <ProjectReference Include="../NyangShinobi.Domain/NyangShinobi.Domain.csproj" />
   </ItemGroup>

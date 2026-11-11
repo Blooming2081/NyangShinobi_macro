@@ -12,5 +12,7 @@
     <ProjectReference Include="../NyangShinobi.Device.Adb/NyangShinobi.Device.Adb.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <Content Include="../../data/settings.default.v0.1.json" Link="data/settings.default.v0.1.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../data/asset_manifest.v0.1.json;../../data/screen_catalog.v0.1.json" Link="data/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../assets/**/*" Link="assets/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

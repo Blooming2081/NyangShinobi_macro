@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
-    <!-- Task 02에서 사용. Task 01은 OpenCV/native runtime을 로드하지 않는다. -->
+    <!-- OpenCV 구현 및 공식 Windows 런타임. 별도 자체 C++ DLL은 사용하지 않는다. -->
     <PackageVersion Include="OpenCvSharp5.Windows" Version="5.0.0.20261109" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />

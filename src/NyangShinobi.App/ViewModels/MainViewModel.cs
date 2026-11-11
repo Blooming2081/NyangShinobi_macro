@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using NyangShinobi.Application;
 using NyangShinobi.Contracts;
 using NyangShinobi.Domain;
+using NyangShinobi.App.Diagnostics;
 
 namespace NyangShinobi.App.ViewModels;
 
@@ -12,25 +13,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ISettingsStore settingsStore;
     private bool initialized;
     private bool isRunning;
+    private bool stopping;
     private GameMode selectedMode;
     private string status = "설정을 불러오는 중입니다.";
     private string settingsSummary = "";
 
-    public MainViewModel(MacroSession session, ISettingsStore settingsStore)
+    public MainViewModel(MacroSession session, ISettingsStore settingsStore, DiagnosticsViewModel diagnostics)
     {
         this.session = session;
         this.settingsStore = settingsStore;
+        Diagnostics = diagnostics;
         StartCommand = new RelayCommand(Start, () => CanStart);
         StopCommand = new RelayCommand(session.Stop, () => IsRunning);
+        Diagnostics.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(DiagnosticsViewModel.IsBusy))
+            { Changed(nameof(CanStart)); StartCommand.Refresh(); }
+        };
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public IReadOnlyList<GameMode> AvailableModes { get; } = Enum.GetValues<GameMode>();
     public RelayCommand StartCommand { get; }
     public RelayCommand StopCommand { get; }
+    public DiagnosticsViewModel Diagnostics { get; }
     public Task Completion { get; private set; } = Task.CompletedTask;
     public bool IsRunning => isRunning;
-    public bool CanStart => initialized && !isRunning;
+    public bool CanStart => initialized && !stopping && !isRunning && !Diagnostics.IsBusy;
     public string Status => status;
     public string SettingsSummary => settingsSummary;
     public GameMode SelectedMode
@@ -52,7 +61,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         SelectedMode = settings.GetGameMode();
         settingsSummary = $"기본 검사 {settings.Capture.DefaultIdleIntervalMs}ms · 입력 후 검증 {settings.Capture.PostTapVerifyDelayMs}ms";
         initialized = true;
-        status = "준비됨 · Task 01 골격";
+        status = "준비됨 · Task 02 · 골격 세션";
         Changed(nameof(SettingsSummary));
         Changed(nameof(Status));
         RefreshState();
@@ -86,12 +95,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public async Task StopAsync()
     {
+        stopping = true;
+        RefreshState();
         session.Stop();
         await Completion;
+        await Diagnostics.StopAsync();
     }
 
     private void RefreshState()
     {
+        Diagnostics.SetAvailable(!isRunning && !stopping);
         Changed(nameof(IsRunning));
         Changed(nameof(CanStart));
         Changed(nameof(Status));

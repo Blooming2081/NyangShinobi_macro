@@ -1,6 +1,6 @@
 # 냥냥시노비 v0.1
 
-Windows x64 · C# · .NET 10 · WPF 신규 개발 프로젝트입니다. 현재 구현 범위는 **Task 01 프로젝트 골격**입니다.
+Windows x64 · C# · .NET 10 · WPF 신규 개발 프로젝트입니다. 현재 구현 범위는 **Task 01 골격 + Task 02 ADB PNG 캡처·입력·ROI 인식 기반**입니다. 게임 진행 로직은 아직 연결하지 않았습니다.
 
 7개 본체 프로젝트와 4개 xUnit 테스트 프로젝트가 `NyangShinobi.slnx`에 포함됩니다. 설계의 최종 권위는 [아키텍처](docs/10_ARCHITECTURE.md)와 [프로젝트 참조 명세](data/architecture.v0.1.json)입니다.
 
@@ -23,6 +23,8 @@ NyangShinobi/
 │   ├── START_HERE.md
 │   ├── 01_SCOPE.md ... 16_EVENT_IMPLEMENTATION_CHECKLIST.md
 │   ├── TASK01_FOUNDATION.md
+│   ├── TASK02_CAPTURE_VISION.md
+│   ├── TASK02_DIAGNOSTICS.md
 │   └── changelog/                     # 과거 설계 변경 이력 2개
 ├── src/
 │   ├── NyangShinobi.App/
@@ -81,7 +83,13 @@ $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
 - 시작은 게임을 조작하지 않는 골격 세션을 열며, 중지와 창 닫기는 세션 취소를 완료합니다. 실행 중 모드 변경과 중복 시작은 차단합니다.
 - 출력 폴더의 `data/settings.default.v0.1.json`을 파싱합니다. `%LocalAppData%/NyangShinobi/settings.v0.1.json`이 존재하면 우선 읽습니다. 저장/설정 편집 UI는 구현하지 않았습니다.
 - 잘못된 설정은 오류로 표시하며 기본값으로 조용히 대체하지 않습니다. 원본 기본 설정은 수정하지 않습니다.
-- 임무/거울/네코 모드는 `IGameFlow` 골격만 등록하며 단계 호출은 `NeedsUserAction`을 반환합니다. 캡처/입력/인식 어댑터 호출은 `NotSupportedException`으로 거절합니다.
+- 임무/거울/네코 모드는 `IGameFlow` 골격만 등록하며 단계 호출은 `NeedsUserAction`을 반환합니다.
+- 캡처·입력 어댑터는 명시한 serial의 준비된 장치만 사용합니다. PNG 단발 캡처 후 실제 해상도로 탭/스와이프 좌표를 변환하며, 전송 완료는 `Pending`입니다. 화면 검증과 구분합니다.
+- OpenCvSharp5 엔진은 manifest 무결성 검사·템플릿 캐시·정규화 ROI 매칭을 지원합니다. 비동기 API가 ADB/이미지 처리를 작업 스레드에서 수행하며 UI에 Mat를 노출하지 않습니다.
+- `FrameScheduler`/`InputSequencer`는 동시 요청의 프레임 공유, 기본 3초 대기, 입력 완료 후 0.5초 새 프레임 검증을 제공합니다. 검증 실패는 입력 중단으로 이어지며 자동 재터치하지 않습니다.
 - 이벤트 핸들러는 기본 0개이며 `AddGameEventHandler<T>()`로 독립 등록할 수 있습니다. 예시 JSON을 로드하거나 활성화하지 않습니다.
+- **개발자 진단** 탭에서 ADB 경로 지정 → 장치 조회·직접 선택 → 메모리 스크린샷 → 에셋/ROI 선택·일치율 측정을 수행합니다. 캡처/디코딩/인식 시간과 해상도를 표시하며, PNG는 저장 버튼으로 경로를 확인했을 때만 저장합니다. 진단에는 터치·스와이프가 없습니다.
 
-게임 진행, OpenCV 인식, ADB 명령, 날짜 팝업/광고/뽑기/이벤트 실행은 후속 Task의 범위입니다. 원본 v2.0.6 흐름 및 에셋은 변경하지 않았습니다. 검증 상세와 파일 목록은 [Task 01 결과](docs/TASK01_FOUNDATION.md)를 참조하세요.
+UI 시작 버튼은 위 장치 API를 자동으로 호출하지 않습니다. 실제 사용에는 사용자가 준비한 ADB 실행 파일과 명시적 serial, 장치 세션 scope와 취소 토큰이 필요합니다. 원본 v2.0.6 흐름 및 에셋은 변경하지 않았습니다.
+
+수동 실기 확인 방법은 [개발자 진단 안내](docs/TASK02_DIAGNOSTICS.md), 기반 API는 [Task 02 결과](docs/TASK02_CAPTURE_VISION.md), 초기 골격 기록은 [Task 01 결과](docs/TASK01_FOUNDATION.md)를 참조하세요. 임무·거울 진행, 날짜 팝업/광고/뽑기/이벤트 실행은 후속 Task이며 Task 03은 아직 시작하지 않았습니다. 실제 앱플레이어의 성능·정확도는 미검증입니다.

@@ -13,7 +13,7 @@
 
 ## 권장 저장소 구조 (Task 01 골격 및 후속 Task 구현 계획)
 
-문서의 이동·통합만 반영했으며 프로젝트 경계와 후속 구현 계획은 유지한다. 아래 소스 트리에는 후속 Task에서 생성할 파일도 포함된다. 현재 구현 상태는 [Task 01 결과](TASK01_FOUNDATION.md)를 참조한다.
+문서의 이동·통합만 반영했으며 프로젝트 경계와 후속 구현 계획은 유지한다. 아래 소스 트리에는 후속 Task에서 생성할 파일도 포함된다. 현재 구현 상태는 [Task 01 결과](TASK01_FOUNDATION.md)와 [Task 02 결과](TASK02_CAPTURE_VISION.md)를 참조한다.
 
 ```text
 NyangShinobi/
@@ -37,6 +37,7 @@ NyangShinobi/
 │   ├── 15_ARCHITECTURE_DECISIONS.md
 │   ├── 16_EVENT_IMPLEMENTATION_CHECKLIST.md
 │   ├── TASK01_FOUNDATION.md
+│   ├── TASK02_CAPTURE_VISION.md
 │   └── changelog/                         # 과거 설계 변경 이력
 ├── data/                                  # 설계의 기계 판독용 데이터
 │   ├── architecture.v0.1.json
