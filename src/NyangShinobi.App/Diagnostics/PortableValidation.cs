@@ -23,7 +23,8 @@ public static class PortableValidation
         if (!localRuntime || RuntimeInformation.ProcessArchitecture != Architecture.X64)
             throw new InvalidOperationException("게시 폴더의 자체 포함 x64 런타임이 사용되지 않았습니다.");
         var metadata = BuildMetadata.Read(root);
-        foreach (var file in InstallManifest.Read(root).Files) UpdateFiles.VerifyFile(root, file);
+        var installRoot = PortableLayout.InstallationRoot(root);
+        foreach (var file in InstallManifest.Read(installRoot).Files) UpdateFiles.VerifyFile(installRoot, file);
 
         using var services = new ServiceCollection().AddNyangShinobi(Path.Combine(root, "data", "settings.default.v0.1.json"))
             .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });

@@ -64,11 +64,11 @@ $expected = (Get-Content "$zip.sha256" -Raw).Trim()
 if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne $expected) { throw 'ZIP SHA256 mismatch' }
 ```
 
-4. ZIP 전체를 풀고 `NyangShinobi.App.exe`를 실행합니다. .NET/WPF/OpenCV/ADB/이미지/기본 설정을 동봉하므로 .NET/ADB 별도 설치 없이 실행할 수 있습니다. 앱플레이어는 사용자가 실행·연결하고 serial을 선택합니다. Windows 구성 요소 등 실행 조건은 [포터블 안내](PORTABLE_DISTRIBUTION.md)를 따릅니다.
+4. ZIP 전체를 새 폴더에 풀고 최상위 `냥냥시노비 실행.cmd`를 실행합니다. 내부 파일은 `app/`에 모여 있습니다. 구형 평면 배포와의 자동 전환은 차단되므로 기존 폴더에 덮어쓰지 마세요. .NET/WPF/OpenCV/ADB/이미지/기본 설정을 동봉하므로 .NET/ADB 별도 설치 없이 실행할 수 있습니다. 앱플레이어는 사용자가 실행·연결하고 serial을 선택합니다. Windows 구성 요소 등 실행 조건은 [포터블 안내](PORTABLE_DISTRIBUTION.md)를 따릅니다.
 
 ## 검증 범위
 
-ZIP 내부의 실제 버전과 파일 목록은 `version.json`, `install-manifest.json`으로 제공합니다. 개발 ZIP 이름은 SemVer에 맞춘 `0.1.0-dev.<run>.g<commit>`이며, Releases 업데이트에서는 Artifact 대신 태그 ZIP/해시를 사용합니다. [자동 업데이트 안내](AUTO_UPDATE.md)를 참조하세요. 빌드 성공·해시 검증·권한·업로더 실패 차단은 유지하고 출시 종류만 태그로 분기합니다.
+ZIP 내부의 실제 버전과 파일 목록은 `app/version.json`, `app/install-manifest.json`(schema 2)으로 제공합니다. 개발 ZIP 이름은 SemVer에 맞춘 `0.1.0-dev.<run>.g<commit>`이며, Releases 업데이트에서는 Artifact 대신 태그 ZIP/해시를 사용합니다. [자동 업데이트 안내](AUTO_UPDATE.md)를 참조하세요. 빌드 성공·해시 검증·권한·업로더 실패 차단과 태그별 Stable/Pre-release 분기를 유지합니다.
 
 `python tools/Test-ReleasePolicy.py`는 워크플로의 실제 게시 블록을 추출해 가짜 `gh`로 검사합니다. Stable/RC, draft 재시도, 공개 Release 덮어쓰기 금지, 해시 오류, 업로드 실패를 검사하며 GitHub에 요청하거나 게시하지 않습니다. Actions도 명세 검증 단계에서 이를 실행합니다.
 

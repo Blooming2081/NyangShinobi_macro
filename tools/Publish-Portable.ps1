@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 [CmdletBinding()]
 param(
     [string]$DotnetPath,
@@ -174,7 +174,8 @@ try {
     if ($pre -and @($pre.Split('.') | Where-Object { $_ -match '^0[0-9]+$' }).Count -gt 0) { throw 'Numeric prerelease identifiers cannot have leading zeroes.' }
     # Each run uses a fresh directory: no recursive delete and no stale publish files.
     $runRoot = Join-Path $repoRoot ('artifacts/portable/' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
-    $publishFolder = Join-Path $runRoot $packageName
+    $packageFolder = Join-Path $runRoot $packageName
+    $publishFolder = Join-Path $packageFolder 'app'
     [void](New-Item -ItemType Directory -Path $publishFolder)
     Invoke-Dotnet -CommandArguments @('restore', 'NyangShinobi.slnx', '--configfile', 'NuGet.Config', '-m:1')
     Invoke-Dotnet -CommandArguments @('build', 'NyangShinobi.slnx', '-c', 'Release', '--no-restore', '-m:1')
@@ -184,7 +185,7 @@ try {
     & (Join-Path $PSScriptRoot 'Copy-PortableAdb.ps1') -Destination $publishFolder
     $sourceCommit = (& git rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Cannot determine source commit.' }
-    [ordered]@{ SchemaVersion = 1; AppId = 'NyangShinobi'; Version = $publishedVersion; Runtime = 'win-x64'; Commit = $sourceCommit; ReleaseTag = $(if ($ReleaseTag) { $ReleaseTag } else { $null }) } |
+    [ordered]@{ SchemaVersion = 2; AppId = 'NyangShinobi'; Version = $publishedVersion; Runtime = 'win-x64'; Commit = $sourceCommit; ReleaseTag = $(if ($ReleaseTag) { $ReleaseTag } else { $null }) } |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $publishFolder 'version.json') -Encoding UTF8
 
     $required = @('NyangShinobi.App.exe', 'NyangShinobi.App.dll', 'NyangShinobi.App.runtimeconfig.json',
@@ -214,21 +215,47 @@ try {
         [pscustomobject]@{ File = $nativeName; Imports = $nativeImports; ExternalVcRuntime = $externalVc }
     }
     $nativeReport | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $runRoot 'native-dependencies.json') -Encoding UTF8
-    Copy-Item -LiteralPath (Join-Path $repoRoot 'docs/PORTABLE_DISTRIBUTION.md') -Destination (Join-Path $publishFolder 'PORTABLE_README.md')
-    $managedFiles = @(Get-ChildItem -LiteralPath $publishFolder -Recurse -File | Sort-Object FullName | ForEach-Object {
-        [ordered]@{ Path = $_.FullName.Substring($publishFolder.Length + 1).Replace('\', '/'); Length = $_.Length; Sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
+    [void][IO.Directory]::CreateDirectory((Join-Path $publishFolder 'docs'))
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'docs/PORTABLE_DISTRIBUTION.md') -Destination (Join-Path $publishFolder 'docs/PORTABLE_README.md')
+    # No absolute shortcut target, PowerShell execution-policy requirement or second runtime.
+    [IO.File]::WriteAllText((Join-Path $packageFolder '냥냥시노비 실행.cmd'), "@echo off`r`nsetlocal DisableDelayedExpansion`r`nif not exist `"%~dp0app\NyangShinobi.App.exe`" exit /b 1`r`nstart `"`" /D `"%~dp0app`" `"%~dp0app\NyangShinobi.App.exe`"`r`n", [Text.Encoding]::ASCII)
+    $guide = @'
+냥냥시노비 Windows x64 포터블
+
+1. ZIP 전체를 새 폴더에 압축 해제하세요.
+2. '냥냥시노비 실행.cmd'를 더블 클릭하세요. 잠깐 명령 창이 보일 수 있습니다.
+   직접 실행하려면 app\NyangShinobi.App.exe를 사용하세요.
+3. app 폴더를 포함한 전체 폴더를 함께 이동하세요. .NET/ADB 별도 설치는 필요 없습니다.
+4. 앱플레이어는 직접 실행하고 개발자 진단 탭에서 ADB 장치를 직접 선택하세요.
+5. 업데이트 탭: Stable은 정식만, Pre-release (테스트)는 RC와 정식을 확인합니다.
+6. 구형 평면 배포에 덮어쓰지 마세요. 구형→새 구조 자동 전환은 지원하지 않습니다.
+   사용자 설정은 %LocalAppData%\NyangShinobi에 유지됩니다.
+   기존 폴더의 개인 스크린샷/추가 파일은 별도로 보관하세요.
+
+상세 안내: app\docs\PORTABLE_README.md
+앱/ADB/게임의 자동 복구·재시작과 Task 03 게임 진행은 포함하지 않습니다.
+'@
+    [IO.File]::WriteAllText((Join-Path $packageFolder '사용 설명서.txt'), $guide, (New-Object Text.UTF8Encoding($true)))
+    $managedFiles = @(Get-ChildItem -LiteralPath $packageFolder -Recurse -File | Sort-Object FullName | ForEach-Object {
+        [ordered]@{ Path = $_.FullName.Substring($packageFolder.Length + 1).Replace('\', '/'); Length = $_.Length; Sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
     })
-    [ordered]@{ SchemaVersion = 1; AppId = 'NyangShinobi'; Files = $managedFiles } | ConvertTo-Json -Depth 5 |
+    [ordered]@{ SchemaVersion = 2; AppId = 'NyangShinobi'; Files = $managedFiles } | ConvertTo-Json -Depth 5 |
         Set-Content -LiteralPath (Join-Path $publishFolder 'install-manifest.json') -Encoding UTF8
     [void](Test-PortableExe $publishFolder (Join-Path $runRoot 'portable-check.json'))
     Test-BundledAdb $publishFolder (Join-Path $runRoot 'adb-check.txt')
 
     $zipPath = Join-Path $runRoot ($packageName + '.zip')
-    Compress-Archive -LiteralPath $publishFolder -DestinationPath $zipPath -CompressionLevel Optimal
-    $unpackedRoot = Join-Path $runRoot 'zip-verification'
-    Expand-Archive -LiteralPath $zipPath -DestinationPath $unpackedRoot
-    [void](Test-PortableExe (Join-Path $unpackedRoot $packageName) (Join-Path $runRoot 'zip-check.json'))
-    Test-BundledAdb (Join-Path $unpackedRoot $packageName) (Join-Path $runRoot 'zip-adb-check.txt')
+    Compress-Archive -LiteralPath $packageFolder -DestinationPath $zipPath -CompressionLevel Optimal
+    $relocated = Join-Path $runRoot '다른 경로 & ZIP 이동 (검증)!'
+    [void][IO.Directory]::CreateDirectory($relocated)
+    $relocatedZip = Join-Path $relocated ($packageName + '.zip')
+    Copy-Item -LiteralPath $zipPath -Destination $relocatedZip
+    $unpackedRoot = Join-Path $relocated '압축 해제'
+    Expand-Archive -LiteralPath $relocatedZip -DestinationPath $unpackedRoot
+    [void](Test-PortableExe (Join-Path (Join-Path $unpackedRoot $packageName) 'app') (Join-Path $runRoot 'zip-check.json'))
+    Test-BundledAdb (Join-Path (Join-Path $unpackedRoot $packageName) 'app') (Join-Path $runRoot 'zip-adb-check.txt')
+    & (Join-Path $PSScriptRoot 'Test-PortableLayout.ps1') -PublishedFolder $packageFolder -Report (Join-Path $runRoot 'layout-check.json')
+    & (Join-Path $PSScriptRoot 'Test-PortableLayout.ps1') -PublishedFolder (Join-Path $unpackedRoot $packageName) -Report (Join-Path $runRoot 'zip-layout-check.json')
     $zipHash = Get-FileHash -LiteralPath $zipPath -Algorithm SHA256
     $zipHash.Hash | Set-Content -LiteralPath ($zipPath + '.sha256') -Encoding ASCII
     # Expose paths only after every check has passed. Local use does not require GitHub.
@@ -236,7 +263,8 @@ try {
         @("zip_path=$zipPath", "sha_path=$zipPath.sha256", "run_root=$runRoot", "package_name=$packageName", "package_version=$PackageVersion") |
             Out-File -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8 -Append
     }
-    Write-Output "Publish folder: $publishFolder"
+    Write-Output "Portable root: $packageFolder"
+    Write-Output "Internal app folder: $publishFolder"
     Write-Output "ZIP: $zipPath"
     Write-Output "SHA256: $($zipHash.Hash)"
 }

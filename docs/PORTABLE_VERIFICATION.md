@@ -1,5 +1,68 @@
 # Windows x64 포터블 배포 검증 기록
 
+## 2026-11-12 — 사용자용 app/ 배포 구조
+
+최상위에는 `냥냥시노비 실행.cmd`, `사용 설명서.txt`, `app/`만 배포합니다. CMD는 `%~dp0` 기준으로 `app/NyangShinobi.App.exe`를 실행하며 절대 경로를 저장하는 바로가기, 두 번째 런타임, 관리자 권한 상승을 사용하지 않습니다. 원래 런타임/DLL 배치는 `app/` 안에서 유지하고 에셋·설정·ADB 경로는 앱의 콘텐츠 기준 경로로 구성합니다. 상세 안내는 [포터블 배포 안내](PORTABLE_DISTRIBUTION.md)를 따릅니다.
+
+### 최종 결과
+
+| 항목 | 결과 |
+|---|---|
+| 전체 restore / Release build / 자체 포함 publish | 성공, 경고 0 / 오류 0 |
+| 전체 자동 테스트 | 기존 189 + 신규 14 = **203 통과 / 0 실패 / 0 건너뜀** |
+| 프로젝트별 | Domain 8, Application 26, Features 2, Integration 167 |
+| 게시 폴더 및 이동 ZIP의 EXE 자가 검사 | 실제 실행 exit 0, .NET 10.0.15 / X64 / 로컬 런타임 / 템플릿 79 / 합성 ROI 점수 1.0 |
+| 실제 최상위 CMD → WPF → 개발자 진단 | 게시 폴더와 이동·압축 해제 사본 모두 성공, 로컬 coreclr/OpenCvSharpExtern 로딩, 에셋 79, 장치 자동 선택 없음 |
+| 번들 ADB | 진단 UI의 절대 경로가 각 사본의 `app/adb.exe`와 일치, 동봉 파일 해시 및 오프라인 `adb version` 통과 |
+| 언어별 리소스 | 13개 폴더 / 156개 파일 보존, 이전 평면 배포와 SHA-256 동일 |
+| 실제 도우미 격리 설치 | 새 구조끼리의 설치·창 없는 재실행 프로토콜 확인 통과 |
+| 실제 실행 실패 / 롤백 / 개인 파일 | 손상 EXE의 Win32 실행 실패 후 이전 버전 복원, 바깥 폴더 및 app 내부 개인 파일 보존 |
+| 기존 구조 자동 전환 | 양방향 모두 백업/파일 교체 전 거부, 수동 설치 안내 단위 테스트 통과 |
+| 명세/원본 에셋 / actionlint / 공백 검사 | 통과 |
+| 실제 workflow 게시 블록 + 가짜 gh | Stable/RC, draft 재시도, 덮어쓰기/해시/업로드 실패 차단 **12개 통과**, GitHub 요청 없음 |
+
+최종 출력은 다음과 같습니다. 모든 출력·ZIP·검사 사본은 기존처럼 Git에서 제외합니다.
+
+```text
+artifacts/portable/20261112-190901-917/
+├── NyangShinobi-v0.1.0-dev.0.layout-win-x64/
+│   ├── 냥냥시노비 실행.cmd
+│   ├── 사용 설명서.txt
+│   └── app/  # EXE/ADB/DLL/언어별 폴더/assets/data/docs/licenses
+├── NyangShinobi-v0.1.0-dev.0.layout-win-x64.zip
+├── NyangShinobi-v0.1.0-dev.0.layout-win-x64.zip.sha256
+├── tests/  # 4개 TRX
+├── portable-check.json / zip-check.json
+├── layout-check.json / zip-layout-check.json
+├── wpf-ui-check.json / zip-wpf-ui-check.json
+├── language-check.json / native-dependencies.json
+└── 다른 경로 & ZIP 이동 (검증)!/압축 해제/...
+```
+
+ZIP 크기 **118,947,988 bytes**, SHA-256: `9449F0681CA88788B3202C579D1E10EDEE1E86EFEDB732B9015372745CC86034`.
+
+최종 도우미 보고서는 `artifacts/update-install/20261112-191112-043/report.json`입니다. 원본 배포를 덮어쓰지 않고 `installation/` 격리 복사본에서 테스트 버전 rc.9001→rc.9002 설치, rc.9003 손상 EXE 실패·롤백, 복원 EXE 자가 검사와 개인 파일 보존을 검증했습니다. 작업/백업은 `installation/app/.updates/<GUID>/` 안에 있고 설치 경계는 `installation/`입니다. 한 번 앞선 동일 앱 코드 배포에서도 설치/롤백이 통과했습니다(`20261112-190354-905/report.json`).
+
+이동 실행은 ZIP을 한글·공백·`&`·괄호·`!`를 포함한 다른 경로에 복사한 뒤 압축 해제해 검사했습니다. 같은 앱 코드의 앞선 이동 사본에서 최종 검사 스크립트로 CMD→진단 검사를 **3회 연속 통과**했고(`20261112-190123-308/zip-wpf-final-1/2/3-check.json`), 최신 설명서가 반영된 위 최종 ZIP도 별도로 재검증했습니다. 초기 검사 실패는 시작 시 업데이트 조회가 완료되면서 기존 앱이 업데이트 탭을 선택하는 것과 진단 탭 검사가 경합한 것이었습니다. 실패 UI 트리로 이를 확인했고, 검사 스크립트만 기존 조회 완료 상태와 컨트롤 준비 상태를 제한 시간 내 기다리도록 수정했습니다. 앱의 시작 시 업데이트 동작은 변경하지 않았습니다.
+
+### 업데이트 호환성과 기존 사용자 안내
+
+`app/version.json`, `app/install-manifest.json`은 schema 2입니다. 관리 목록은 바깥 배포 폴더 기준이며 진입점/설명서와 app 내부 관리 파일을 함께 검증·백업·교체·롤백합니다. 다운로드/도우미/백업은 `app/.updates/`에 둡니다. 신규 코드의 준비 단계와 도우미 양쪽에서 schema 1↔2 전환을 차단합니다. 구형 코드도 ZIP 루트의 schema 1 설치 목록이 없는 새 패키지를 승인할 수 없다는 것을 코드 경로로 확인했습니다. **구형 실행본의 실제 오류 UI와 자동 마이그레이션은 실기 검증하지 않았으며 자동 전환을 지원하지 않습니다.**
+
+기존 사용자는 새 ZIP 전체를 **새 폴더**에 풀어 실행합니다. 구형 폴더에 덮어쓰거나 기존 DLL/런타임을 복사하지 않습니다. 기존 `%LocalAppData%/NyangShinobi`의 사용자 설정·채널 설정은 그대로 읽습니다. 구형 배포 폴더에 별도로 저장한 스크린샷/개인 파일은 직접 보관합니다. Stable/Pre-release 두 채널, 기존 게임/캡처/인식 및 3초/500ms 정책은 유지합니다.
+
+### 변경 파일과 미검증 범위
+
+- 배포/검사: `tools/Publish-Portable.ps1`, 신규 `tools/Test-PortableLayout.ps1`, `tools/Test-UpdateInstall.ps1`, `.editorconfig`의 해당 PowerShell UTF-8 BOM 설정.
+- 설치 경계: 신규 `Updates/PortableLayout.cs`, `UpdateFiles.cs`, `UpdatePackage.cs`, `UpdateCoordinator.cs`, `UpdateInstaller.cs`, `InstallRootGuard.cs`, `UpdateViewModel.cs`.
+- 앱 조립/검증: `App.xaml.cs`의 설치 잠금 경계, `DependencyInjection.cs`의 번들 ADB 절대 경로/명시 경로 보존, `Diagnostics/PortableValidation.cs`의 전체 배포 파일 검증.
+- 테스트: 신규 `PortableLayoutTests.cs` 14개와 `UpdateTestData.cs`의 새 구조 fixture. 기존 테스트는 유지했습니다.
+- 안내: `.github/workflows/portable.yml`의 실행/수동 전환 노트, README 및 포터블/GitHub/업데이트/검증 문서.
+
+기존 7개 본체·4개 테스트 프로젝트, NuGet 패키지, 이미지 원본, 게임·ADB 명령·캡처/비전 구현은 변경하지 않았습니다. 단일 파일/trimming/무거운 런처/Task 03은 추가하지 않았습니다. ADB 서버·게임·앱플레이어를 실행하거나 종료하지 않았습니다.
+
+**이번 변경의 실제 GitHub Actions 실행/Release 게시/새 포맷 Release에서의 GUI 업데이트 전 과정은 미검증입니다.** 로컬 결과를 CI 성공으로 간주하지 않습니다. 다른 경로 이동은 현재 Windows PC에서 확인했으며 **SDK/Runtime 없는 깨끗한 새 Windows PC**의 실행, 실제 MuMu/BlueStacks 성능·정확도는 별도 검증 항목입니다. 아래는 이전 배포 구조의 이력입니다.
+
 ## 2026-11-12 — Stable / Pre-release 최종 배포 정책
 
 UI의 `Development`만 **Pre-release (테스트)**로 표시합니다. 내부 enum과 저장 값 `Development=0`/`Stable=1`은 유지하며 채널은 두 개입니다. 기존 설정 파일을 읽어도 다시 쓰지 않는 호환성 테스트 2개를 추가했습니다. Stable의 정식 전용 필터와 Pre-release의 RC·정식 비교는 기존 구현/테스트를 유지했습니다.

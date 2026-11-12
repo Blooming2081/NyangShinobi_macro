@@ -19,7 +19,9 @@ public static class DependencyInjection
         var contentRoot = System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(defaultSettingsPath)))!;
         services.AddSingleton<ISettingsStore>(new JsonSettingsStore(defaultSettingsPath, userSettingsPath));
         services.AddSingleton<IGameClock, SystemGameClock>();
-        services.AddSingleton(adbOptions ?? new AdbOptions());
+        var bundledAdb = System.IO.Path.Combine(contentRoot, "adb.exe");
+        services.AddSingleton(adbOptions ?? new AdbOptions
+        { ExecutablePath = System.IO.File.Exists(bundledAdb) ? bundledAdb : "adb.exe" });
         services.AddSingleton<IAdbCommandRunner, AdbProcessRunner>();
         services.AddSingleton<AdbDeviceClient>();
         services.AddSingleton(new VisionOptions());

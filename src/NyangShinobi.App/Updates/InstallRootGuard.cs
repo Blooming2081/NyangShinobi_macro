@@ -19,7 +19,7 @@ public static class InstallRootGuard
             if (!acquired) throw new InvalidOperationException("같은 설치 폴더의 프로그램이 이미 실행 중입니다.");
             if (!verifiedRestart)
             {
-                var path = Path.Combine(root, ".updates", "install.lock");
+                var path = Path.Combine(PortableLayout.UpdateDirectory(root), "install.lock");
                 UpdateFiles.RejectReparseParents(root, path);
                 if (File.Exists(path)) { using var probe = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite); }
             }
@@ -29,7 +29,7 @@ public static class InstallRootGuard
     }
     public static FileStream EnterInstaller(string root)
     {
-        var path = Path.Combine(root, ".updates", "install.lock");
+        var path = Path.Combine(PortableLayout.UpdateDirectory(root), "install.lock");
         UpdateFiles.RejectReparseParents(root, path);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);

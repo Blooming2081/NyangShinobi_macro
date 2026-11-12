@@ -20,31 +20,35 @@ public sealed class UpdateCoordinator(GitHubUpdateClient client, string? appRoot
 
     public async Task<UpdatePlan> PrepareAsync(UpdateRelease release, IProgress<DownloadProgress>? progress, CancellationToken token)
     {
+        var installRoot = PortableLayout.InstallationRoot(AppRoot);
         var runtime = Path.GetFullPath(RuntimeEnvironment.GetRuntimeDirectory());
         if (!runtime.StartsWith(AppRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-            !File.Exists(Path.Combine(AppRoot, InstallManifest.FileName)))
+            !File.Exists(PortableLayout.ManifestPath(installRoot)))
             throw new InvalidOperationException("자동 설치는 버전/설치 목록을 포함한 Windows x64 자체 포함 포터블 배포에서만 지원합니다.");
         using var parent = Process.GetCurrentProcess();
         var nonce = Guid.NewGuid().ToString("N");
-        var plan = new UpdatePlan(1, AppRoot, Path.Combine(AppRoot, ".updates", nonce), release.Version,
+        var plan = new UpdatePlan(1, installRoot, Path.Combine(PortableLayout.UpdateDirectory(installRoot), nonce), release.Version,
             parent.Id, parent.StartTime.ToUniversalTime().Ticks, nonce);
         plan.Validate();
         Directory.CreateDirectory(plan.TransactionRoot);
         var zip = await client.DownloadAsync(release, plan.TransactionRoot, progress, token).ConfigureAwait(false);
         await UpdatePackage.ExtractAsync(zip, plan.PackageRoot, release, token).ConfigureAwait(false);
+        PortableLayout.EnsureCompatible(installRoot, plan.PackageRoot);
         // 런타임/앱의 최상위 파일만 복사한다. 에셋은 도우미 시작에 필요하지 않다.
         await Task.Run(() =>
         {
             Directory.CreateDirectory(plan.HelperRoot);
-            var manifest = InstallManifest.Read(AppRoot);
-            foreach (var file in manifest.Files.Where(file => !file.Path.Contains('/') &&
+            var manifest = InstallManifest.Read(installRoot);
+            var prefix = manifest.SchemaVersion == PortableLayout.CurrentSchema ? "app/" : "";
+            foreach (var file in manifest.Files.Where(file => file.Path.StartsWith(prefix, StringComparison.Ordinal) &&
+                !file.Path[prefix.Length..].Contains('/') &&
                 (file.Path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || file.Path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || file.Path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))))
             {
                 token.ThrowIfCancellationRequested();
-                UpdateFiles.VerifyFile(AppRoot, file);
-                File.Copy(UpdateFiles.InRoot(AppRoot, file.Path), Path.Combine(plan.HelperRoot, file.Path), false);
+                UpdateFiles.VerifyFile(installRoot, file);
+                File.Copy(UpdateFiles.InRoot(installRoot, file.Path), Path.Combine(plan.HelperRoot, file.Path[prefix.Length..]), false);
             }
-            File.Copy(Path.Combine(AppRoot, InstallManifest.FileName), Path.Combine(plan.HelperRoot, InstallManifest.FileName), false);
+            File.Copy(PortableLayout.ManifestPath(installRoot), Path.Combine(plan.HelperRoot, InstallManifest.FileName), false);
             UpdateFiles.WriteJson(plan.PlanPath, plan);
         }, token).ConfigureAwait(false);
         return plan;

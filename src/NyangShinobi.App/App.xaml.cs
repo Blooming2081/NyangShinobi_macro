@@ -70,7 +70,7 @@ public partial class App : System.Windows.Application
         {
             var verifiedRestart = e.Args.Length == 2 && e.Args[0] == "--update-restart";
             if (verifiedRestart) UpdateInstaller.ValidateRestart(e.Args[1]);
-            installationInstance = InstallRootGuard.EnterGui(AppContext.BaseDirectory, verifiedRestart);
+            installationInstance = InstallRootGuard.EnterGui(PortableLayout.InstallationRoot(AppContext.BaseDirectory), verifiedRestart);
             var defaults = Path.Combine(AppContext.BaseDirectory, "data", "settings.default.v0.1.json");
             var userSettings = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "NyangShinobi", "settings.v0.1.json");

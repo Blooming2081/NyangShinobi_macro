@@ -10,8 +10,8 @@ public sealed record BuildMetadata(int SchemaVersion, string AppId, string Versi
     public const string Identity = "NyangShinobi";
     public static BuildMetadata Read(string root)
     {
-        var value = UpdateFiles.ReadJson<BuildMetadata>(Path.Combine(root, FileName));
-        if (value.SchemaVersion != 1 || value.AppId != Identity || value.Runtime != "win-x64")
+        var value = UpdateFiles.ReadJson<BuildMetadata>(Path.Combine(PortableLayout.AppDirectory(root), FileName));
+        if (value.SchemaVersion is not (1 or PortableLayout.CurrentSchema) || value.AppId != Identity || value.Runtime != "win-x64")
             throw new InvalidDataException("빌드 메타데이터의 앱/플랫폼이 일치하지 않습니다.");
         SemVersion.Parse(value.Version);
         return value;
@@ -30,17 +30,22 @@ public sealed record InstallManifest(int SchemaVersion, string AppId, IReadOnlyL
     public const string FileName = "install-manifest.json";
     public static InstallManifest Read(string root)
     {
-        var manifest = UpdateFiles.ReadJson<InstallManifest>(System.IO.Path.Combine(root, FileName));
-        if (manifest.SchemaVersion != 1 || manifest.AppId != BuildMetadata.Identity || manifest.Files.Count is < 1 or > 10000)
+        var manifest = UpdateFiles.ReadJson<InstallManifest>(PortableLayout.ManifestPath(root));
+        var nested = !PortableLayout.AppDirectory(root).Equals(root, StringComparison.OrdinalIgnoreCase);
+        var prefix = nested ? "app/" : "";
+        if (manifest.SchemaVersion != (nested ? PortableLayout.CurrentSchema : 1) || manifest.AppId != BuildMetadata.Identity || manifest.Files.Count is < 1 or > 10000 ||
+            BuildMetadata.Read(root).SchemaVersion != manifest.SchemaVersion)
             throw new InvalidDataException("설치 파일 목록이 올바르지 않습니다.");
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in manifest.Files)
         {
             UpdateFiles.ValidateRelativePath(file.Path);
-            if (file.Path.Equals(FileName, StringComparison.OrdinalIgnoreCase) || !paths.Add(file.Path) || file.Length is < 0 or > 268435456 ||
+            if (file.Path.Equals(prefix + FileName, StringComparison.OrdinalIgnoreCase) || !paths.Add(file.Path) || file.Length is < 0 or > 268435456 ||
                 !UpdateFiles.IsSha256(file.Sha256)) throw new InvalidDataException("중복/잘못된 설치 파일 항목입니다.");
         }
-        if (!paths.Contains("NyangShinobi.App.exe") || !paths.Contains(BuildMetadata.FileName))
+        if (!paths.Contains(prefix + "NyangShinobi.App.exe") || !paths.Contains(prefix + BuildMetadata.FileName) ||
+            (nested && (!paths.Contains(PortableLayout.Launcher) || !paths.Contains(PortableLayout.Guide) ||
+                paths.Any(path => !path.StartsWith("app/", StringComparison.OrdinalIgnoreCase) && path != PortableLayout.Launcher && path != PortableLayout.Guide))))
             throw new InvalidDataException("앱 실행 파일 또는 버전 메타데이터가 없습니다.");
         return manifest;
     }

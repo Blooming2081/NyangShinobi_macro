@@ -65,9 +65,9 @@ public sealed class UpdateViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             var plan = UpdateFiles.ReadJson<UpdatePlan>(planPath);
-            var root = System.IO.Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(System.IO.Path.DirectorySeparatorChar);
+            var root = PortableLayout.InstallationRoot(AppContext.BaseDirectory);
             if (!root.Equals(plan.TargetRoot, StringComparison.OrdinalIgnoreCase) || !Guid.TryParseExact(plan.Nonce, "N", out _) ||
-                !plan.TransactionRoot.Equals(System.IO.Path.Combine(root, ".updates", plan.Nonce), StringComparison.OrdinalIgnoreCase) ||
+                !plan.TransactionRoot.Equals(System.IO.Path.Combine(PortableLayout.UpdateDirectory(root), plan.Nonce), StringComparison.OrdinalIgnoreCase) ||
                 !System.IO.Path.GetFullPath(planPath).Equals(plan.PlanPath, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("복원 결과 경로가 앱의 작업 폴더와 다릅니다.");
             UpdateFiles.RejectReparseParents(root, plan.TransactionRoot);

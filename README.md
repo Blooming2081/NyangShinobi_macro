@@ -4,7 +4,7 @@ Windows x64 · C# · .NET 10 · WPF 신규 개발 프로젝트입니다. 현재 
 
 7개 본체 프로젝트와 4개 xUnit 테스트 프로젝트가 `NyangShinobi.slnx`에 포함됩니다. 설계의 최종 권위는 [아키텍처](docs/10_ARCHITECTURE.md)와 [프로젝트 참조 명세](data/architecture.v0.1.json)입니다.
 
-**사용자 PC 실행:** Windows x64 [포터블 배포 안내](docs/PORTABLE_DISTRIBUTION.md)와 [실제 배포 검증 기록](docs/PORTABLE_VERIFICATION.md)을 참조하세요. ZIP을 폴더 전체로 풀어 EXE를 실행하며, .NET SDK/Runtime을 별도로 설치하지 않습니다. 아래 SDK 명령은 개발 PC용입니다.
+**사용자 PC 실행:** Windows x64 [포터블 배포 안내](docs/PORTABLE_DISTRIBUTION.md)와 [실제 배포 검증 기록](docs/PORTABLE_VERIFICATION.md)을 참조하세요. ZIP 전체를 새 폴더에 풀고 최상위 `냥냥시노비 실행.cmd`를 실행합니다. 내부 런타임·EXE는 `app/`에 있으며 .NET SDK/Runtime은 별도 설치하지 않습니다. 구형 평면 배포에는 덮어쓰지 않습니다. 아래 SDK 명령은 개발 PC용입니다.
 
 개발·Codex 작업은 [통합 시작 안내](docs/START_HERE.md)와 [AGENTS.md](AGENTS.md)를 먼저 읽습니다. 기존 루트의 시작 안내 두 문서는 통합했으며, 과거 설계 변경 이력은 [docs/changelog/](docs/changelog/)로 옮겼습니다.
 

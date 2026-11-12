@@ -128,11 +128,13 @@ jobs:
           출시 채널: ${release_kind}
           소스: ${SOURCE_SHA}
 
-          ZIP 전체를 풀고 NyangShinobi.App.exe를 실행하세요.
+          ZIP 전체를 새 폴더에 풀고 최상위 '냥냥시노비 실행.cmd'를 실행하세요.
+          내부 파일은 app/에 있습니다. 구형 평면 배포에 덮어쓰지 마세요.
+          구형→새 구조 자동 전환은 차단되며 새 폴더에 수동 설치해야 합니다.
           .NET 10 런타임, OpenCvSharp, 이미지/설정 및 ADB가 포함됩니다.
           앱플레이어는 사용자가 실행하고 ADB 연결 및 serial을 직접 선택해야 합니다.
           Task 03의 게임 진행 기능은 아직 구현하지 않았습니다.
-          실행 조건과 사용법은 ZIP 내부 PORTABLE_README.md를 확인하세요.
+          실행 조건과 사용법은 최상위 사용 설명서.txt 및 app/docs/PORTABLE_README.md를 확인하세요.
           EOF
           if existing=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' 2>/dev/null); then
             if [[ "$existing" != 'true' ]]; then

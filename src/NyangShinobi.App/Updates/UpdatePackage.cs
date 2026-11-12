@@ -54,7 +54,7 @@ public static class UpdatePackage
             if (written != entry.Length) throw new InvalidDataException("ZIP 항목이 잘렸습니다.");
         }
         var manifest = InstallManifest.Read(output);
-        var expected = manifest.Files.Select(file => file.Path).Append(InstallManifest.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var expected = manifest.Files.Select(file => file.Path).Append(PortableLayout.ManifestRelativePath(output)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!files.SetEquals(expected)) throw new InvalidDataException("ZIP 내용과 설치 파일 목록이 일치하지 않습니다.");
         foreach (var file in manifest.Files) { token.ThrowIfCancellationRequested(); UpdateFiles.VerifyFile(output, file); }
         var metadata = BuildMetadata.Read(output);

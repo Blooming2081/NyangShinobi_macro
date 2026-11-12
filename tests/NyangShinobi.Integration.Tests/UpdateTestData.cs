@@ -18,14 +18,21 @@ internal static class UpdateTestData
         var path = Path.Combine(root?.FullName ?? Path.GetTempPath(), "artifacts", "update-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path); return path;
     }
-    public static void WriteInstallation(string root, string version, bool next = false, bool conflict = false)
+    public static void WriteInstallation(string root, string version, bool next = false, bool conflict = false, bool nested = false)
     {
         Directory.CreateDirectory(root);
-        File.WriteAllText(Path.Combine(root, "NyangShinobi.App.exe"), "app-" + version);
-        File.WriteAllText(Path.Combine(root, "core.dll"), "core-" + version);
-        File.WriteAllText(Path.Combine(root, next ? "added.dll" : "old-only.dll"), "owned-" + version);
-        if (conflict) File.WriteAllText(Path.Combine(root, "settings.v0.1.json"), "must-not-overwrite");
-        UpdateFiles.WriteJson(Path.Combine(root, BuildMetadata.FileName), new BuildMetadata(1, BuildMetadata.Identity, version, "win-x64", "test-commit", "v" + version));
+        var app = nested ? Path.Combine(root, "app") : root;
+        Directory.CreateDirectory(app);
+        if (nested)
+        {
+            File.WriteAllText(Path.Combine(root, PortableLayout.Launcher), "launcher-" + version);
+            File.WriteAllText(Path.Combine(root, PortableLayout.Guide), "guide-" + version);
+        }
+        File.WriteAllText(Path.Combine(app, "NyangShinobi.App.exe"), "app-" + version);
+        File.WriteAllText(Path.Combine(app, "core.dll"), "core-" + version);
+        File.WriteAllText(Path.Combine(app, next ? "added.dll" : "old-only.dll"), "owned-" + version);
+        if (conflict) File.WriteAllText(Path.Combine(app, "settings.v0.1.json"), "must-not-overwrite");
+        UpdateFiles.WriteJson(Path.Combine(app, BuildMetadata.FileName), new BuildMetadata(nested ? 2 : 1, BuildMetadata.Identity, version, "win-x64", "test-commit", "v" + version));
         WriteManifest(root);
     }
     public static void WriteManifest(string root)
@@ -34,18 +41,18 @@ internal static class UpdateTestData
             .Where(path => Path.GetFileName(path) != InstallManifest.FileName)
             .Select(path => new ManagedUpdateFile(Path.GetRelativePath(root, path).Replace('\\', '/'), new FileInfo(path).Length,
                 Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))))).ToArray();
-        UpdateFiles.WriteJson(Path.Combine(root, InstallManifest.FileName), new InstallManifest(1, BuildMetadata.Identity, files));
+        UpdateFiles.WriteJson(PortableLayout.ManifestPath(root), new InstallManifest(BuildMetadata.Read(root).SchemaVersion, BuildMetadata.Identity, files));
     }
-    public static (byte[] Bytes, UpdateRelease Release) Package(string version = "0.1.0-rc.2")
+    public static (byte[] Bytes, UpdateRelease Release) Package(string version = "0.1.0-rc.2", bool nested = false)
     {
-        var root = DirectoryPath(); WriteInstallation(root, version, true);
+        var root = DirectoryPath(); WriteInstallation(root, version, true, nested: nested);
         var name = $"NyangShinobi-v{version}-win-x64.zip";
         using var memory = new MemoryStream();
         using (var zip = new ZipArchive(memory, ZipArchiveMode.Create, true))
         {
-            foreach (var path in Directory.EnumerateFiles(root))
+            foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
             {
-                using var entry = zip.CreateEntry(name[..^4] + "/" + Path.GetFileName(path)).Open();
+                using var entry = zip.CreateEntry(name[..^4] + "/" + Path.GetRelativePath(root, path).Replace('\\', '/')).Open();
                 entry.Write(File.ReadAllBytes(path));
             }
         }

@@ -17,7 +17,7 @@ public sealed record UpdatePlan(int SchemaVersion, string TargetRoot, string Tra
         SemVersion.Parse(ExpectedVersion);
         var target = Path.GetFullPath(TargetRoot).TrimEnd(Path.DirectorySeparatorChar);
         var transaction = Path.GetFullPath(TransactionRoot).TrimEnd(Path.DirectorySeparatorChar);
-        if (Path.GetDirectoryName(target) is null || transaction != Path.Combine(target, ".updates", Nonce))
+        if (Path.GetDirectoryName(target) is null || transaction != Path.Combine(PortableLayout.UpdateDirectory(target), Nonce))
             throw new InvalidDataException("업데이트 작업 폴더가 앱의 .updates 경계를 벗어납니다.");
         UpdateFiles.RejectReparseParents(target, transaction);
         var current = BuildMetadata.Read(target);
@@ -35,6 +35,7 @@ public static class UpdateInstaller
         CancellationToken token) => Task.Run(async () =>
     {
         plan.Validate();
+        PortableLayout.EnsureCompatible(plan.TargetRoot, plan.PackageRoot);
         var current = InstallManifest.Read(plan.TargetRoot);
         var next = InstallManifest.Read(plan.PackageRoot);
         var metadata = BuildMetadata.Read(plan.PackageRoot);
@@ -58,7 +59,10 @@ public static class UpdateInstaller
             Directory.CreateDirectory(Path.GetDirectoryName(backup)!);
             File.Copy(UpdateFiles.InRoot(plan.TargetRoot, file.Path), backup, false);
         }
-        File.Copy(Path.Combine(plan.TargetRoot, InstallManifest.FileName), Path.Combine(plan.BackupRoot, InstallManifest.FileName));
+        var manifestRelativePath = PortableLayout.ManifestRelativePath(plan.TargetRoot);
+        var targetManifest = UpdateFiles.InRoot(plan.TargetRoot, manifestRelativePath);
+        var backupManifest = UpdateFiles.InRoot(plan.BackupRoot, manifestRelativePath);
+        File.Copy(targetManifest, backupManifest);
         foreach (var file in current.Files) UpdateFiles.VerifyFile(plan.BackupRoot, file);
         var journal = Path.Combine(plan.TransactionRoot, "journal.json");
         UpdateFiles.WriteJson(journal, new { State = "prepared", plan.ExpectedVersion, plan.BackupRoot });
@@ -75,7 +79,7 @@ public static class UpdateInstaller
                 if (!owned.Contains(file.Path)) created.Add(file.Path);
             }
             foreach (var obsolete in owned.Except(incoming, StringComparer.OrdinalIgnoreCase)) File.Delete(UpdateFiles.InRoot(plan.TargetRoot, obsolete));
-            AtomicCopy(Path.Combine(plan.PackageRoot, InstallManifest.FileName), Path.Combine(plan.TargetRoot, InstallManifest.FileName));
+            AtomicCopy(PortableLayout.ManifestPath(plan.PackageRoot), targetManifest);
             foreach (var file in next.Files) UpdateFiles.VerifyFile(plan.TargetRoot, file);
             await restartAndVerify(CancellationToken.None).ConfigureAwait(false);
             try { UpdateFiles.WriteJson(journal, new { State = "committed", plan.ExpectedVersion, plan.BackupRoot }); }
@@ -104,7 +108,7 @@ public static class UpdateInstaller
                     var target = UpdateFiles.InRoot(plan.TargetRoot, file);
                     if (File.Exists(target)) { UpdateFiles.VerifyFile(plan.TargetRoot, next.Files.Single(item => item.Path == file)); File.Delete(target); }
                 }
-                AtomicCopy(Path.Combine(plan.BackupRoot, InstallManifest.FileName), Path.Combine(plan.TargetRoot, InstallManifest.FileName));
+                AtomicCopy(backupManifest, targetManifest);
                 UpdateFiles.WriteJson(journal, new { State = "rolledBack", Error = installError.Message, plan.BackupRoot });
                 return new InstallOutcome(false, true, $"설치 실패, 기존 버전 복원 완료: {installError.Message}", plan.BackupRoot);
             }
@@ -128,6 +132,7 @@ public static class UpdateInstaller
     {
         var plan = UpdateFiles.ReadJson<UpdatePlan>(planPath);
         plan.Validate();
+        PortableLayout.EnsureCompatible(plan.TargetRoot, plan.PackageRoot);
         if (!Path.GetFullPath(planPath).Equals(plan.PlanPath, StringComparison.OrdinalIgnoreCase) ||
             !Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar).Equals(plan.HelperRoot, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("도우미는 독립된 작업 복사본에서만 실행할 수 있습니다.");
@@ -148,7 +153,7 @@ public static class UpdateInstaller
             if (parent is not null)
             {
                 if (parent.StartTime.ToUniversalTime().Ticks != plan.ParentStartTicks ||
-                    !string.Equals(parent.MainModule?.FileName, Path.Combine(plan.TargetRoot, "NyangShinobi.App.exe"), StringComparison.OrdinalIgnoreCase))
+                    !string.Equals(parent.MainModule?.FileName, PortableLayout.Executable(plan.TargetRoot), StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("기다릴 원본 앱 프로세스의 신원이 다릅니다.");
             }
             UpdateFiles.WriteText(Path.Combine(plan.TransactionRoot, "ready"), plan.Nonce);
@@ -162,8 +167,8 @@ public static class UpdateInstaller
         {
             outcome = await InstallAsync(plan, async restartToken =>
             {
-                var start = new ProcessStartInfo(Path.Combine(plan.TargetRoot, "NyangShinobi.App.exe"))
-                { UseShellExecute = false, WorkingDirectory = plan.TargetRoot };
+                var start = new ProcessStartInfo(PortableLayout.Executable(plan.TargetRoot))
+                { UseShellExecute = false, WorkingDirectory = PortableLayout.AppDirectory(plan.TargetRoot) };
                 start.ArgumentList.Add(plan.VerifyRestartOnly ? "--verify-update-restart" : "--update-restart");
                 start.ArgumentList.Add(plan.PlanPath);
                 using var app = Process.Start(start) ?? throw new IOException("새 앱 프로세스를 시작하지 못했습니다.");
@@ -202,7 +207,7 @@ public static class UpdateInstaller
         if ((outcome.RolledBack || originalIntact) && !plan.VerifyRestartOnly)
         {
             installGuard.Dispose();
-            var restart = new ProcessStartInfo(Path.Combine(plan.TargetRoot, "NyangShinobi.App.exe")) { UseShellExecute = false, WorkingDirectory = plan.TargetRoot };
+            var restart = new ProcessStartInfo(PortableLayout.Executable(plan.TargetRoot)) { UseShellExecute = false, WorkingDirectory = PortableLayout.AppDirectory(plan.TargetRoot) };
             restart.ArgumentList.Add("--update-result"); restart.ArgumentList.Add(plan.PlanPath);
             Process.Start(restart)?.Dispose();
         }
@@ -218,9 +223,9 @@ public static class UpdateInstaller
     public static UpdatePlan ValidateRestart(string planPath)
     {
         var plan = UpdateFiles.ReadJson<UpdatePlan>(planPath);
-        var root = Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar);
+        var root = PortableLayout.InstallationRoot(AppContext.BaseDirectory);
         if (!root.Equals(plan.TargetRoot, StringComparison.OrdinalIgnoreCase) ||
-            !plan.TransactionRoot.Equals(Path.Combine(root, ".updates", plan.Nonce), StringComparison.OrdinalIgnoreCase) ||
+            !plan.TransactionRoot.Equals(Path.Combine(PortableLayout.UpdateDirectory(root), plan.Nonce), StringComparison.OrdinalIgnoreCase) ||
             !Path.GetFullPath(planPath).Equals(plan.PlanPath, StringComparison.OrdinalIgnoreCase) ||
             !Guid.TryParseExact(plan.Nonce, "N", out _) || BuildMetadata.Read(root).Version != plan.ExpectedVersion)
             throw new InvalidDataException("재실행 확인 경로/버전이 다릅니다.");

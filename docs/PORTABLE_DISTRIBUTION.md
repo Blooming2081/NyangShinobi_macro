@@ -3,17 +3,35 @@
 ## 새 Windows PC에서 실행
 
 1. Windows 10/11 x64의 일반 데스크톱 환경에서 ZIP을 **폴더 전체로 압축 해제**합니다. ZIP 안에서 바로 실행하거나 EXE만 다른 곳에 복사하지 않습니다.
-2. 폴더의 `NyangShinobi.App.exe`를 실행합니다. .NET 10 런타임이 함께 포함되어 있으므로 사용자 PC에 **.NET SDK나 .NET Runtime을 따로 설치할 필요가 없습니다**.
+2. 최상위 **`냥냥시노비 실행.cmd`**를 더블 클릭합니다. 잠깐 명령 창이 보일 수 있으며, 직접 실행하려면 `app/NyangShinobi.App.exe`를 사용합니다. .NET 10 런타임이 함께 포함되어 있으므로 사용자 PC에 **.NET SDK나 .NET Runtime을 따로 설치할 필요가 없습니다**.
 3. 사용자가 MuMu/BlueStacks를 실행하고 ADB 사용 및 연결을 준비합니다. **개발자 진단** 탭의 기본 `adb.exe`는 앱 실행 파일 옆의 동봉 ADB를 사용합니다. 별도 ADB 설치나 PATH 설정은 필요 없습니다. 장치 조회 후 serial을 직접 선택하며 자동 선택하지 않습니다. 앱플레이어와 게임은 ZIP에 포함하지 않습니다.
 4. 메모리 스크린샷을 캡처하고 에셋/ROI를 선택해 일치율을 측정합니다. PNG는 저장 버튼으로 경로를 명시했을 때만 저장합니다. 진단은 터치·스와이프를 보내지 않습니다.
 
 캡처 방식 비교는 같은 진단 화면 아래 **RAW vs PNG** 탭의 **RAW vs PNG 벤치마크**를 누릅니다. 직접 선택한 ADB/serial로 예열 후 각 10회를 교대로 측정합니다. 결과는 메모리만 사용하며 기본 PNG 방식은 바뀌지 않습니다. **진단 취소**로 중단할 수 있고 측정 중 일반 실행·다른 진단은 차단됩니다.
 
-새 포터블은 실제 버전 `version.json`과 관리 파일 목록 `install-manifest.json`을 포함합니다. **업데이트** 탭에서 Stable / Pre-release (테스트) 두 채널을 확인하고, 매크로/진단 중지 및 동의 후 백업·설치·재실행합니다. 메타데이터 없는 과거 ZIP은 자동 설치하지 않습니다. [업데이트/복원 안내](https://github.com/Blooming2081/NyangShinobi_macro/blob/HEAD/docs/AUTO_UPDATE.md)를 확인하세요.
+새 포터블은 실제 버전 `app/version.json`과 전체 배포 관리 파일 목록 `app/install-manifest.json`(schema 2)을 포함합니다. **업데이트** 탭에서 Stable / Pre-release (테스트) 두 채널을 확인하고, 매크로/진단 중지 및 동의 후 백업·설치·재실행합니다. **구형 평면 배포와 새 app/ 구조 사이의 자동 전환은 차단합니다.** ZIP을 기존 폴더에 덮어쓰지 말고 새 폴더에 수동 설치하세요. `%LocalAppData%/NyangShinobi` 설정은 계속 사용하며, 구형 폴더의 개인 파일/스크린샷은 따로 보관합니다. [업데이트/복원 안내](https://github.com/Blooming2081/NyangShinobi_macro/blob/HEAD/docs/AUTO_UPDATE.md)를 확인하세요.
 
-시작/중지는 현재 게임 입력 없는 골격 세션입니다. Task 03의 임무 진행은 구현되지 않았습니다. 기존 사용자 설정 파일이 있으면 `%LocalAppData%/NyangShinobi/settings.v0.1.json`을 우선 읽고, 없으면 폴더의 `data/settings.default.v0.1.json`을 사용합니다. 포터블은 설치 프로그램이 없는 폴더 배포이며, 이 기존 설정 위치는 변경하지 않았습니다.
+시작/중지는 현재 게임 입력 없는 골격 세션입니다. Task 03의 임무 진행은 구현되지 않았습니다. 기존 사용자 설정 파일이 있으면 `%LocalAppData%/NyangShinobi/settings.v0.1.json`을 우선 읽고, 없으면 `app/data/settings.default.v0.1.json`을 사용합니다. 포터블은 설치 프로그램이 없는 폴더 배포이며, 이 기존 설정 위치는 변경하지 않았습니다.
 
 ## 포함 파일과 경로
+
+```text
+NyangShinobi-v<버전>-win-x64/
+├── 냥냥시노비 실행.cmd
+├── 사용 설명서.txt
+└── app/
+    ├── NyangShinobi.App.exe, adb.exe, *.dll, *.json
+    ├── assets/                # 원본 79개 포함 에셋
+    ├── data/                  # 기본 설정·명세
+    ├── docs/PORTABLE_README.md
+    ├── licenses/              # ADB 원본 고지·출처
+    ├── 언어별 리소스 폴더/     # 삭제하거나 재배치하지 않음
+    └── .updates/              # 업데이트 시 생성; 다운로드·도우미·백업
+```
+
+최상위에는 진입점·설명서·app 폴더 세 개만 배포합니다. `.lnk`의 저장된 절대 대상/시작 위치에 의존하지 않도록 `%~dp0` 상대 경로의 작은 CMD를 사용합니다. 관리자 권한 상승, 추가 런타임, 스크립트 실행 정책 변경이 필요 없으며 인자를 셸에 전달하지 않습니다. 이동 시 전체 폴더를 함께 옮기세요. 조직 정책으로 CMD 실행이 금지되면 `app/NyangShinobi.App.exe`를 직접 실행하세요.
+
+아래 내부 파일은 모두 `app/` 기준입니다.
 
 - `NyangShinobi.App.exe`, 앱/프로젝트 DLL, `.deps.json`, `.runtimeconfig.json`.
 - .NET 10 Windows x64의 `hostfxr.dll`, `hostpolicy.dll`, `coreclr.dll`, 프레임워크/WPF DLL 등 자체 포함 런타임.
@@ -21,11 +39,11 @@
 - `assets/`의 원본 이미지와 `data/`의 기본 설정·manifest·화면 카탈로그.
 - 공식 Android Platform-Tools 37.0.1의 `adb.exe`, `AdbWinApi.dll`, `AdbWinUsbApi.dll`. Google의 Windows ADB는 x86 바이너리로 Windows x64의 WOW64에서 실행되며, WPF/OpenCV 본체는 x64입니다.
 - `licenses/android-platform-tools/`의 원본 NOTICE, source.properties 및 배포 출처·SHA-256 메타데이터.
-- 이 안내의 사본 `PORTABLE_README.md`.
+- 이 안내의 사본 `docs/PORTABLE_README.md`.
 
 앱과 진단은 작업 디렉터리 대신 EXE가 있는 `AppContext.BaseDirectory`를 기준으로 파일을 찾습니다. 바로 가기의 시작 위치가 다른 곳이어도 동작해야 합니다. `assets/`, `data/`, DLL을 이동하거나 이름을 바꾸지 않습니다. WPF/DI/네이티브 라이브러리와 외부 에셋의 경계를 보존하기 위해 단일 파일·trimming은 사용하지 않습니다.
 
-기본 ADB 이름은 Windows의 [실행 파일 검색 순서](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw)에 따라 앱 옆의 파일을 찾습니다. ADB 및 동반 DLL도 원래 이름과 위치를 유지합니다. 앱플레이어가 기본 ADB 서버에 노출되지 않으면 사용자가 제품 안내에 따라 연결한 후 조회해야 합니다. 자동 연결·복구나 ADB 서버 재시작은 수행하지 않습니다. USB 연결에 필요한 장치별 드라이버는 사용자 환경에서 준비합니다.
+기본 ADB는 앱의 콘텐츠 기준 경로에서 `app/adb.exe`의 절대 경로를 구성합니다. 사용자가 명시한 별도 ADB 경로는 유지합니다. ADB 및 동반 DLL도 앱 옆의 원래 이름과 위치를 유지합니다. 앱플레이어가 기본 ADB 서버에 노출되지 않으면 사용자가 제품 안내에 따라 연결한 후 조회해야 합니다. 자동 연결·복구나 ADB 서버 재시작은 수행하지 않습니다. USB 연결에 필요한 장치별 드라이버는 사용자 환경에서 준비합니다.
 
 ADB는 공식 ZIP에서 필요한 파일만 원본 그대로 추출합니다. 버전·URL·다운로드 및 개별 파일 SHA-256은 `tools/dependencies/platform-tools.windows.json`에 고정했습니다. 해시는 해당 공식 ZIP을 내려받아 계산한 값이며 불일치 시 배포가 중단됩니다. 버전 갱신 시 원본과 고지를 검토하고 메타데이터도 갱신해야 합니다. 공식 안내: [Platform-Tools](https://developer.android.com/tools/releases/platform-tools), [ADB 소스와 라이선스](https://android.googlesource.com/platform/packages/modules/adb/).
 
@@ -59,7 +77,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/Publish-Portable.ps1 -
 2. `PortableWinX64.pubxml`로 `win-x64`, `.NET 10`, `SelfContained=true` 게시.
 3. SHA-256으로 검증한 ADB 추가, 필수 실행/WPF/OpenCV/ADB 파일, 기본 JSON 동일성, 포함 에셋 SHA-256 및 native import 검사.
 4. 게시 EXE를 `--verify-portable`로 실행해 로컬 .NET 런타임 사용, 79개 템플릿, 기본 설정, PNG 디코딩과 합성 프레임 ROI 매칭 검사. 동봉 `adb version`도 오프라인 실행합니다. ADB 서버·실제 장치·게임·사용자 설정은 사용하지 않습니다.
-5. ZIP 생성 → 별도 경로에 압축 해제 → 이동한 EXE/ADB로 같은 검사 → ZIP SHA-256 기록.
+5. ZIP 생성 → 한글·공백·`&`·괄호·`!`가 있는 다른 경로로 ZIP 복사/압축 해제 → 이동한 EXE/ADB로 같은 검사 → 최상위 세 항목/상대 진입점 검사 → ZIP SHA-256 기록.
 
 각 실행은 새 시각 폴더를 사용하며 이전 배포를 재귀 삭제하거나 덮어쓰지 않습니다. 출력은 Git에서 제외하는 다음 위치입니다.
 
@@ -73,7 +91,17 @@ artifacts/portable/<yyyyMMdd-HHmmss-fff>/
 ├── adb-check.txt / zip-adb-check.txt
 ├── native-dependencies.json
 ├── tests/                            # 전체 테스트 TRX
-└── zip-verification/                 # ZIP에서 다시 푼 검증 사본
+├── layout-check.json / zip-layout-check.json
+└── 다른 경로 & ZIP 이동 (검증)!/       # 이동 ZIP 및 압축 해제 검증 사본
 ```
 
 실제 앱플레이어의 ADB 연결·캡처 시간·인식 정확도와 깨끗한 Windows VM 검증은 이 자가 검사에 포함되지 않습니다. `--verify-portable`의 높은 점수는 알려진 합성 프레임의 배포 검증 결과이며 게임 임계값을 변경하지 않습니다.
+
+실제 WPF/진단 탭은 Windows 데스크톱에서 별도로 검사합니다. 이 검사는 최상위 CMD를 실행하고 79개 에셋, 로컬 OpenCV/.NET DLL, 절대 번들 ADB 경로와 장치 미선택 상태를 확인한 후 자신이 연 창만 종료합니다. 시작 시 기존 업데이트 조회/탭 전환의 완료 상태를 제한 시간 내 확인한 후 진단 탭을 선택합니다. 장치 조회·입력은 보내지 않습니다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-PortableLayout.ps1 -PublishedFolder '<배포 최상위 폴더>' -Report '<배포 바깥의 검사 결과.json>' -VerifyGui
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-UpdateInstall.ps1 -PublishedFolder '<배포 최상위 폴더>'
+```
+
+CI는 데스크톱 자동화 대신 기본 구조 검사·실제 EXE 자가 검사·기존 WPF XAML 테스트·격리 설치/롤백 검사를 수행합니다. `-VerifyGui`는 데스크톱 검증용 선택 옵션입니다. 한글이 들어간 배포/검사 PowerShell 스크립트의 UTF-8 BOM은 Windows PowerShell 5.1 호환을 위해 유지합니다.
