@@ -1,5 +1,50 @@
 # Windows x64 포터블 배포 검증 기록
 
+## 2026-11-12 — RAW vs PNG 개발자 벤치마크
+
+[사용법과 측정 정의](CAPTURE_BENCHMARK.md)에 따라 기존 개발자 진단 탭에 수동 벤치마크를 추가했습니다. **실제 MuMu/BlueStacks 캡처나 성능 측정은 하지 않았습니다.** 아래 값은 자동 검증 결과이며 가짜 ADB 실행 시간은 실기 성능으로 제시하지 않습니다. 새 GitHub Actions 실행도 수행하지 않았습니다.
+
+| 검사 | 로컬 결과 |
+|---|---|
+| `dotnet restore` | 성공 |
+| 전체 Release build | 경고 0 / 오류 0 |
+| 신규 벤치마크 테스트 | **37 통과 / 0 실패** |
+| 전체 테스트 | 기존 84 + 신규 37 = **121 통과 / 0 실패 / 0 건너뜀** |
+| 프로젝트별 | Domain 8, Application 26, Features 2, Integration 85 |
+| 명세·에셋 | PASS: 86 catalog assets, 7 project specs, 6 modules, 1 event definitions |
+| GitHub workflow 정적 검사 | actionlint 통과, Release 조건·권한 변경 없음 |
+| 포터블/ZIP EXE 실행 | 각각 동봉 .NET 10.0.15, X64, 템플릿 79, 합성 ROI score 1.0 |
+| 동봉 ADB | 게시 및 ZIP 재압축 해제 경로에서 오프라인 `adb version` 성공 |
+| 경계 보존 | 게임 캡처/스케줄러/입력 시퀀서/비전 엔진·원본 에셋·패키지·프로젝트·배포 스크립트 변경 없음 |
+
+가짜 ADB 테스트는 예열 제외·10회씩 순서 교대·직접 선택한 경로/serial·회차별 시간/크기/해상도, 두 방식 BGRA32 생성, RAW 12/16바이트 헤더와 RGBA/RGBX/BGRA 변환을 확인했습니다. 잘못된 해상도·버퍼 길이·stride·오버플로·미지원 형식/색공간·PNG 헤더/payload·ADB 비정상 종료/timeout도 검증했습니다. 픽셀 일치를 요구하지 않도록 PNG/RAW 해상도가 다른 경우도 통과했습니다.
+
+취소/창 닫기, 일반 매크로·다른 진단·중복 요청 차단, 진단 서비스의 캡처 직렬화, 마지막 화면/결과 수명, 실제 WPF 버튼 바인딩을 확인했습니다. 기존 실제 OS CLI의 timeout/취소·소유 프로세스 회수 테스트도 전체 테스트에서 유지했습니다.
+
+실행한 포터블 명령:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/Publish-Portable.ps1 -PackageVersion 0.1.0-dev.raw-benchmark
+```
+
+출력: `artifacts/portable/20261112-131001-898/NyangShinobi-v0.1.0-dev.raw-benchmark-win-x64.zip`
+
+```text
+SHA256: 44E2B6A2CFD8A20C46E3249E09D4127A7C19C5D5545F740E8F3A539DFC61A82A
+```
+
+같은 시각 폴더에 전체 4개 TRX, native 의존성, 게시/ZIP EXE 및 ADB 검사 보고서가 있습니다. 신규 테스트만 실행한 TRX는 `artifacts/capture-benchmark/final-focused/`에 있습니다. 모두 Git 제외 생성물입니다.
+
+생성·수정 파일:
+
+- 신규 `src/NyangShinobi.App/Diagnostics/CaptureBenchmark.cs`: 제한된 순차 ADB 캡처·예열·교대·시간/크기 측정·오류/취소 결과.
+- 신규 `CaptureBenchmarkResult.cs`, `RawBenchmarkDecoder.cs` (같은 Diagnostics 폴더): 통계/표본/지원 결과, 벤치마크 전용 RAW 검증·BGRA32 변환.
+- 기존 `CaptureDiagnostics.cs`, `DiagnosticsViewModel.cs`, `DiagnosticsView.xaml` (같은 폴더): runner 재사용·직렬화·기존 작업 잠금·진행/결과 UI.
+- 신규 `tests/NyangShinobi.Integration.Tests/CaptureBenchmarkTests.cs`, 기존 `WindowLifecycleTests.cs`: 가짜 ADB·RAW·통계·취소/오류·상호 배제·WPF 바인딩.
+- 신규 `docs/CAPTURE_BENCHMARK.md`, 기존 `README.md`, `docs/TASK02_DIAGNOSTICS.md`, `docs/PORTABLE_DISTRIBUTION.md`, 이 기록: 사용법과 검증 범위.
+
+실기에서 남은 항목은 MuMu/BlueStacks의 실제 RAW 헤더/색상/회전 지원, 같은 조건에서 시간·전송 크기 분포 및 취소 응답입니다. 검증 결과만으로 RAW 전환을 결정하지 않았으며, 기본 PNG와 3초/500ms 정책 및 Task 03 미구현 상태를 유지합니다.
+
 ## 2026-11-12 — CI 프로세스 경계 테스트의 준비 동기화 수정
 
 대상 실패 실행은 [43133784338 / job 130904080757](https://github.com/Blooming2081/NyangShinobi_macro/actions/runs/43133784338/job/130904080757)입니다. 공개 API로 `windows-2025` 검증 작업 실패와 ZIP 업로드 건너뜀, 진단 Artifact 생성 성공을 확인했습니다. 상세 로그 다운로드는 HTTP 403, TRX Artifact 다운로드는 HTTP 401로 제한돼 과거 CI의 CPU 부하·콜드 스타트·임시 파일 쓰기 오류 여부까지 확인하지는 못했습니다. **아래 수정본의 GitHub 재실행 결과는 아직 없습니다.**

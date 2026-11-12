@@ -4,6 +4,8 @@ Task 03을 구현하기 전 실제 MuMu/BlueStacks에서 수동으로 확인할 
 
 SDK/Runtime 없는 Windows x64 사용자 PC에서는 [포터블 배포 안내](PORTABLE_DISTRIBUTION.md)에 따라 ZIP 전체를 풀어 실행할 수 있습니다.
 
+2026-11-12 후속 기능으로 [RAW vs PNG 벤치마크](CAPTURE_BENCHMARK.md)를 추가했습니다. 아래 초기 진단 도구 검증 기록과 구분하며, RAW는 벤치마크 안에서만 사용합니다.
+
 ## 사용 순서
 
 1. 사용자가 앱플레이어와 게임을 열고, 해당 환경의 ADB 연결을 준비합니다. 도구는 앱플레이어를 띄우거나 자동 연결하지 않습니다.
@@ -34,8 +36,8 @@ SDK/Runtime 없는 Windows x64 사용자 PC에서는 [포터블 배포 안내](P
 ## 분리·메모리·입력 제한
 
 - 구현은 `src/NyangShinobi.App/Diagnostics/`에 모았습니다. `CaptureDiagnostics`는 기존 `AdbDeviceClient`, `AdbScreenCapture`, PNG 디코더, 템플릿 저장소와 `IVisionEngine`을 재사용합니다. 입력 컨트롤러·InputSequencer·게임 Flow를 의존성으로 받지 않습니다.
-- 진단 ADB 명령은 장치 목록 조회와 선택 serial의 `exec-out screencap -p`뿐입니다. 터치·스와이프·게임 진행·ADB/게임 재시작 명령은 없습니다. 일반 실행과 진단 작업은 UI에서 동시에 시작할 수 없습니다.
-- 수동 단발 캡처는 기존 `IScreenCapture` 경로를 사용합니다. `FrameScheduler`/`InputSequencer`의 3초/0.5초 정책은 변경하지 않았습니다. 반복 캡처·워치독·자동 복구·RAW·scrcpy·자체 C++ DLL은 추가하지 않았습니다.
+- 진단 ADB 명령은 장치 목록 조회와 선택 serial의 `exec-out screencap -p`, 벤치마크 전용 `exec-out screencap`입니다. 터치·스와이프·게임 진행·ADB/게임 재시작 명령은 없습니다. 일반 실행과 진단 작업은 UI에서 동시에 시작할 수 없습니다.
+- 수동 단발 캡처는 기존 PNG `IScreenCapture` 경로를 사용합니다. `FrameScheduler`/`InputSequencer`의 3초/0.5초 정책은 변경하지 않았습니다. RAW 반복 측정은 사용자가 실행한 제한된 벤치마크에만 있으며, 상시 캡처·워치독·자동 복구·scrcpy·자체 C++ DLL은 없습니다.
 - 메모리 프레임을 진단 VM이 보관하고 인식에 같은 객체를 전달합니다. 미리보기는 작업 스레드에서 한 번 생성해 `Freeze`한 WPF 이미지입니다. 렌더링·에셋/ROI 변경 때 프레임을 다시 만들지 않습니다. WPF 표시용 픽셀 저장소 복사는 한 번 필요합니다.
 - PNG 디코딩에는 기존 압축 버퍼의 span을, OpenCV BGR 변환에는 `ImageFrame` 소유 배열을 직접 전달해 불필요한 전체 관리 배열 복사를 줄였습니다. Task 02의 네이티브 Mat 수명과 마지막 프레임 캐시는 유지합니다.
 - PNG 인코딩·디스크 쓰기와 ADB/이미지 처리는 작업 스레드에서 수행합니다. UI에는 `Mat`를 노출하지 않습니다. native 호출/PNG 인코딩은 실행 중 강제 중단하지 않으며 종료 시 완료를 기다립니다.
