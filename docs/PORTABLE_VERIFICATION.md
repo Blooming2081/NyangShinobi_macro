@@ -1,5 +1,40 @@
 # Windows x64 포터블 배포 검증 기록
 
+## 2026-11-12 — CI 프로세스 경계 테스트의 준비 동기화 수정
+
+대상 실패 실행은 [43133784338 / job 130904080757](https://github.com/Blooming2081/NyangShinobi_macro/actions/runs/43133784338/job/130904080757)입니다. 공개 API로 `windows-2025` 검증 작업 실패와 ZIP 업로드 건너뜀, 진단 Artifact 생성 성공을 확인했습니다. 상세 로그 다운로드는 HTTP 403, TRX Artifact 다운로드는 HTTP 401로 제한돼 과거 CI의 CPU 부하·콜드 스타트·임시 파일 쓰기 오류 여부까지 확인하지는 못했습니다. **아래 수정본의 GitHub 재실행 결과는 아직 없습니다.**
+
+### 확인한 원인과 재현
+
+기존 테스트는 `CommandTimeout=2초`를 PowerShell 스크립트 진입/PID 기록 시간과 분리하지 않았습니다. runner는 `Process.Start()` 전부터 제한 시간을 재며, timeout 분기에서는 준비 상태 확인 없이 예외 후 PID 파일이 존재한다고 단정했습니다. cancel 분기도 준비 대기 5초보다 명령 제한 2초가 먼저 만료될 수 있었습니다. 파일 존재만 확인하므로 부분 기록까지 완료된 것인지도 보장하지 못했습니다.
+
+보고된 실패 위치는 `Assert.ThrowsAsync<TimeoutException>` 이후입니다. runner의 `TimeoutException` 변환은 `Process.Start()` 성공 이후의 try/catch에 있으므로, 해당 실행은 실행 파일을 못 찾아 시작하지 못한 경우와 구분됩니다. 다만 기존 코드는 timeout 시 가짜 CLI의 stderr를 테스트 보고서에 남기지 않아, PID 기록 지연과 파일 쓰기 오류의 세부 원인을 과거 로그만으로 확정할 수 없습니다. 실행 경로/인자 문제라고 단정할 근거도 없습니다.
+
+로컬에서 기존 가짜 CLI의 PID 기록 앞에 3초 지연을 넣자, 2초 뒤 **동일한 56번째 줄 메시지**로 실패했습니다. 이것으로 준비 완료 전에 timeout이 발생하면 실패하는 테스트의 경쟁 조건을 재현했습니다. 재현 TRX: `artifacts/adb-runner-fix/reproduction/startup-race.trx`.
+
+### 수정 및 진단
+
+- PID 파일과 폴링을 비동기 Named Pipe의 PID 준비 응답으로 교체했습니다. 사용자가 취소하는 분기는 실제 준비 응답 후에만 취소합니다.
+- 테스트의 준비 제한은 15초, 생성 전부터 시작하는 전체 명령 제한은 준비 예산을 포함한 18초입니다. 제품의 ADB 설정 및 3초/0.5초 정책은 그대로입니다. 준비 전 실행 실패/종료는 기다리지 않고 즉시 보고합니다.
+- 정상/3초 지연 × timeout/cancel의 4개 경우를 검증합니다. 가짜 CLI의 종료와 별도로 생성한 같은 실행 파일의 비교용 프로세스 생존을 모두 확인하며, 실패/취소 경로에서도 소유한 프로세스·파이프를 정리합니다.
+- 시작 실패는 실행 경로·Win32 코드, 준비 전 종료는 exit code·stderr, 준비 제한시간 초과는 파이프 연결 여부·runner 상태로 구분합니다. 잘못된 실행 경로 및 준비 전 exit 17/stderr 분류도 테스트합니다.
+- xUnit 출력에 OS/.NET/아키텍처, 경로·인자, 준비 소요 시간, 대상/비교용 PID와 종료 상태를 남깁니다. TRX `StdOut` 포함을 확인했으므로 기존 CI `verification-*` Artifact에서 볼 수 있습니다. 배포 조건·권한·워크플로 변경은 없습니다.
+
+### 로컬 검증
+
+| 검사 | 결과 |
+|---|---|
+| 전체 Release build (`--no-restore`) | 경고 0 / 오류 0 |
+| 프로세스 테스트 반복 | 8개 × 5회 = **40 통과 / 0 실패** |
+| 위 반복 중 timeout/cancel | 4개 × 5회 = **20 통과**, 대상만 종료·비교용 프로세스 생존 |
+| 준비 응답 | 373~3,415ms (3초 의도적 지연 포함) |
+| 전체 테스트 | **84 통과 / 0 실패 / 0 건너뜀** (Domain 8, Application 26, Features 2, Integration 48) |
+| 명세·에셋 및 workflow 정적 검사 | 기존 명세 PASS, actionlint 오류 없음 |
+
+Named Pipe는 로컬 샌드박스의 접근 제한으로 최초 검증이 차단돼 권한 제한 밖에서 위 반복/전체 테스트를 수행했습니다. 실제 GitHub Actions 성공으로 보고하지 않습니다. 반복 로그/TRX는 `artifacts/adb-runner-fix/repeated-unrestricted/run-1`~`run-5`, 전체 보고서는 `artifacts/adb-runner-fix/full-final/`에 있습니다. 생성물은 Git에서 제외됩니다.
+
+변경 파일은 `tests/NyangShinobi.Integration.Tests/AdbProcessRunnerTests.cs`, 같은 폴더의 `README.md`, 이 기록입니다. 프로덕션 `AdbProcessRunner`의 결함은 발견되지 않아 수정하지 않았습니다. 7개 본체·4개 테스트 프로젝트, NuGet 패키지, 게임/임무/거울/이미지 인식, Release 조건을 유지했으며 Task 03은 구현하지 않았습니다.
+
 ## 2026-11-12 — GitHub Actions 및 ADB 번들 로컬 검증
 
 **실제 GitHub Actions/Release는 실행·게시하지 않았습니다.** 아래 결과는 Windows x64 개발 PC에서의 실행이며, Push 이후 호스팅 러너 실행과 Release 첨부 파일을 별도로 확인해야 합니다. 사용 절차는 [GitHub 배포 안내](GITHUB_DISTRIBUTION.md)를 따릅니다.
