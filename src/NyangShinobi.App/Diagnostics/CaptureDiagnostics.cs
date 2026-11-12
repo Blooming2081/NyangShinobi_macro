@@ -11,14 +11,12 @@ public sealed record DiagnosticMatch(DetectionResult Result, TimeSpan Duration);
 
 /// <summary>수동 개발자 진단 전용. 입력 컨트롤러/게임 흐름을 의존성으로 받지 않는다.</summary>
 public sealed class CaptureDiagnostics(AdbOptions defaults, IImageFrameDecoder decoder, IGameClock clock,
-    IVisionEngine vision, TemplateRepository templates, Func<AdbOptions, IAdbCommandRunner>? runnerFactory = null,
-    VisionOptions? benchmarkVisionOptions = null)
+    IVisionEngine vision, TemplateRepository templates, Func<AdbOptions, IAdbCommandRunner>? runnerFactory = null)
 {
     private readonly SemaphoreSlim operationGate = new(1, 1);
     private string? currentPath;
     private AdbDeviceClient? client;
     private AdbScreenCapture? capture;
-    private CaptureBenchmark? benchmark;
     private readonly TimedDecoder timedDecoder = new(decoder);
 
     public string DefaultAdbPath => defaults.ExecutablePath;
@@ -37,10 +35,6 @@ public sealed class CaptureDiagnostics(AdbOptions defaults, IImageFrameDecoder d
             return new DiagnosticCapture(frame, Stopwatch.GetElapsedTime(started), timedDecoder.Duration);
         }, cancellationToken);
 
-    public Task<CaptureBenchmarkResult> BenchmarkAsync(string adbPath, string serial, IProgress<string>? progress,
-        CancellationToken cancellationToken) =>
-        WithClientAsync(adbPath, () => benchmark!.RunAsync(adbPath, serial, progress, cancellationToken), cancellationToken);
-
     private async Task<T> WithClientAsync<T>(string adbPath, Func<Task<T>> operation, CancellationToken token)
     {
         await operationGate.WaitAsync(token).ConfigureAwait(false);
@@ -57,7 +51,7 @@ public sealed class CaptureDiagnostics(AdbOptions defaults, IImageFrameDecoder d
         return new(result, Stopwatch.GetElapsedTime(started));
     }
 
-    // operationGate 안에서만 연결을 교체한다. 측정 도중 대상/runner가 바뀌지 않는다.
+    // operationGate 안에서만 연결을 교체한다. 진단 작업 도중 대상/runner가 바뀌지 않는다.
     private void Connect(string adbPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(adbPath);
@@ -66,7 +60,6 @@ public sealed class CaptureDiagnostics(AdbOptions defaults, IImageFrameDecoder d
         var runner = runnerFactory?.Invoke(options) ?? new AdbProcessRunner(options);
         client = new AdbDeviceClient(runner);
         capture = new AdbScreenCapture(client, timedDecoder, clock);
-        benchmark = new CaptureBenchmark(runner, decoder, clock, benchmarkVisionOptions ?? new VisionOptions());
         currentPath = adbPath;
     }
 

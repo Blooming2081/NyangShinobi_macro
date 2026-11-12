@@ -28,7 +28,6 @@ public sealed class DiagnosticsViewModel : INotifyPropertyChanged
         DevicesCommand = new RelayCommand(() => Completion = RefreshDevicesAsync(), () => CanEdit);
         AssetsCommand = new RelayCommand(() => Completion = LoadAssetsAsync(), () => CanEdit);
         CaptureCommand = new RelayCommand(() => Completion = CaptureAsync(), () => CanEdit && SelectedDevice?.State == "device");
-        BenchmarkCommand = new RelayCommand(() => Completion = BenchmarkAsync(), () => CanEdit && SelectedDevice?.State == "device");
         MatchCommand = new RelayCommand(() => Completion = MatchAsync(), () => CanEdit && frame is not null && SelectedAsset is not null);
         CancelCommand = new RelayCommand(() => cancellation?.Cancel(), () => IsBusy);
     }
@@ -37,7 +36,6 @@ public sealed class DiagnosticsViewModel : INotifyPropertyChanged
     public RelayCommand DevicesCommand { get; }
     public RelayCommand AssetsCommand { get; }
     public RelayCommand CaptureCommand { get; }
-    public RelayCommand BenchmarkCommand { get; }
     public RelayCommand MatchCommand { get; }
     public RelayCommand CancelCommand { get; }
     public Task Completion { get; private set; } = Task.CompletedTask;
@@ -47,10 +45,6 @@ public sealed class DiagnosticsViewModel : INotifyPropertyChanged
     public string Status { get; private set; } = "ADB 경로를 확인하고 장치 목록을 조회한 뒤 직접 선택하세요. 입력 명령은 전송하지 않습니다.";
     public string CaptureSummary { get; private set; } = "캡처 없음";
     public string MatchSummary { get; private set; } = "임계값을 적용하지 않고 일치율만 측정합니다.";
-    public string BenchmarkSummary { get; private set; } = "예열 1회 후 PNG/RAW 각 10회 · 회차마다 순서 교대 · 기본 PNG 캡처는 유지합니다.";
-    public CaptureBenchmarkResult? BenchmarkResult { get; private set; }
-    public IReadOnlyList<BenchmarkSummaryRow> BenchmarkRows { get; private set; } = [];
-    public IReadOnlyList<CaptureBenchmarkSample> BenchmarkSamples => BenchmarkResult?.Samples ?? [];
     public bool IsBusy => cancellation is not null;
     public bool CanEdit => available && !IsBusy && !stopping;
     public bool CanSave => CanEdit && Preview is not null;
@@ -151,28 +145,6 @@ public sealed class DiagnosticsViewModel : INotifyPropertyChanged
         Status = "선택한 메모리 프레임의 점수 측정 완료 · 재캡처/게임 입력 없음. 최초 로딩 또는 캐시 시간이 포함됩니다.";
     });
 
-    public Task BenchmarkAsync() => RunAsync(async token =>
-    {
-        var device = SelectedDevice;
-        if (device?.State != "device") throw new InvalidOperationException("준비된 장치를 직접 선택하세요.");
-        ClearCapture();
-        BenchmarkSummary = $"ADB: {AdbPath} · serial: {device.Serial} · 벤치마크 준비 중 · PNG/RAW 지원 미확인";
-        Changed(nameof(BenchmarkSummary));
-        var source = cancellation;
-        var progress = new Progress<string>(message =>
-        {
-            // 이전 작업에서 늦게 도착한 Dispatcher 알림은 새 작업 상태를 덮어쓰지 않는다.
-            if (!token.IsCancellationRequested && ReferenceEquals(cancellation, source))
-            { Status = message; Changed(nameof(Status)); }
-        });
-        BenchmarkResult = await diagnostics.BenchmarkAsync(AdbPath, device.Serial, progress, token);
-        BenchmarkRows = BenchmarkResult.Summary;
-        BenchmarkSummary = BenchmarkResult.Description;
-        Changed(nameof(BenchmarkResult)); Changed(nameof(BenchmarkRows)); Changed(nameof(BenchmarkSamples)); Changed(nameof(BenchmarkSummary));
-        Status = BenchmarkResult.Canceled ? "벤치마크 취소 · 완료된 표본만 메모리에 유지합니다." :
-            "벤치마크 종료 · 결과는 메모리에만 있습니다. 실패/미완료 표본과 실제 화면 조건을 확인하세요.";
-    });
-
     // View의 SaveFileDialog에서 사용자가 확인한 경로만 전달한다. 자동 저장 호출은 없다.
     public Task SaveAsync(string path) => RunAsync(async token =>
     {
@@ -208,7 +180,6 @@ public sealed class DiagnosticsViewModel : INotifyPropertyChanged
         cancellation?.Cancel();
         await Completion;
         frame = null; Preview = null;
-        ClearBenchmark();
         Changed(nameof(Preview)); Refresh();
     }
 
@@ -223,20 +194,12 @@ public sealed class DiagnosticsViewModel : INotifyPropertyChanged
     private void ClearCapture()
     {
         frame = null; Preview = null; CaptureSummary = "캡처 없음";
-        ClearBenchmark();
         ClearMatch(); Changed(nameof(Preview)); Changed(nameof(CaptureSummary));
-    }
-    private void ClearBenchmark()
-    {
-        BenchmarkResult = null; BenchmarkRows = [];
-        BenchmarkSummary = "예열 1회 후 PNG/RAW 각 10회 · 회차마다 순서 교대 · 기본 PNG 캡처는 유지합니다.";
-        Changed(nameof(BenchmarkResult)); Changed(nameof(BenchmarkRows)); Changed(nameof(BenchmarkSamples)); Changed(nameof(BenchmarkSummary));
     }
     private void Refresh()
     {
         Changed(nameof(Status)); Changed(nameof(IsBusy)); Changed(nameof(CanEdit)); Changed(nameof(CanSave));
         DevicesCommand.Refresh(); AssetsCommand.Refresh(); CaptureCommand.Refresh(); MatchCommand.Refresh(); CancelCommand.Refresh();
-        BenchmarkCommand.Refresh();
     }
     private void Changed([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

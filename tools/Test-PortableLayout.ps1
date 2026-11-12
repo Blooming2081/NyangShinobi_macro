@@ -117,6 +117,9 @@ try {
     $tab.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $adbPath = (Find-Id 'DiagnosticAdbPath').GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).Current.Value
     if (-not $adbPath.Equals((Join-Path $packageFolder 'adb.exe'), [StringComparison]::OrdinalIgnoreCase)) { throw "Bundled ADB path mismatch: $adbPath" }
+    $tabControls = $window.FindAll([Windows.Automation.TreeScope]::Descendants,
+        (New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Tab)))
+    if ($tabControls.Count -ne 1) { throw 'Diagnostic content must contain a single preview without nested tabs.' }
     $assetSelector = Find-Id 'DiagnosticAssetSelector'
     if ($null -eq $assetSelector) { throw 'Diagnostic asset selector missing.' }
     $assetsButton = [Windows.Automation.TreeWalker]::ControlViewWalker.GetPreviousSibling($assetSelector)

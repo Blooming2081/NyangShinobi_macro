@@ -72,45 +72,7 @@
       <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="#555555" />
     </StackPanel>
     <Border Grid.Row="6" Background="#202020" Padding="8">
-      <TabControl>
-        <TabItem Header="스크린샷">
-          <Image Source="{Binding Preview}" Stretch="Uniform" AutomationProperties.AutomationId="DiagnosticPreview" />
-        </TabItem>
-        <TabItem Header="RAW vs PNG">
-          <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="8">
-              <Button Content="RAW vs PNG 벤치마크" Command="{Binding BenchmarkCommand}" Padding="12,5" HorizontalAlignment="Left"
-                      AutomationProperties.AutomationId="DiagnosticBenchmark" />
-              <TextBlock Text="{Binding BenchmarkSummary}" TextWrapping="Wrap" Margin="0,8" AutomationProperties.AutomationId="DiagnosticBenchmarkSummary" />
-              <TextBlock Text="ADB: CLI 시작~stdout 수신/종료 · 변환: 검증+BGRA32 ImageFrame 생성 포함 · 예열 제외" TextWrapping="Wrap" />
-              <DataGrid ItemsSource="{Binding BenchmarkRows}" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" Margin="0,8"
-                        AutomationProperties.AutomationId="DiagnosticBenchmarkStatistics">
-                <DataGrid.Columns>
-                  <DataGridTextColumn Header="방식" Binding="{Binding Method}" />
-                  <DataGridTextColumn Header="측정 항목" Binding="{Binding Metric}" />
-                  <DataGridTextColumn Header="평균" Binding="{Binding Mean, StringFormat=F2}" />
-                  <DataGridTextColumn Header="중앙값" Binding="{Binding Median, StringFormat=F2}" />
-                  <DataGridTextColumn Header="최소" Binding="{Binding Minimum, StringFormat=F2}" />
-                  <DataGridTextColumn Header="최대" Binding="{Binding Maximum, StringFormat=F2}" />
-                  <DataGridTextColumn Header="P95" Binding="{Binding P95, StringFormat=F2}" />
-                </DataGrid.Columns>
-              </DataGrid>
-              <DataGrid ItemsSource="{Binding BenchmarkSamples}" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False"
-                        AutomationProperties.AutomationId="DiagnosticBenchmarkSamples">
-                <DataGrid.Columns>
-                  <DataGridTextColumn Header="방식" Binding="{Binding Method}" />
-                  <DataGridTextColumn Header="회차" Binding="{Binding Round}" />
-                  <DataGridTextColumn Header="해상도" Binding="{Binding Resolution}" />
-                  <DataGridTextColumn Header="ADB ms" Binding="{Binding AdbMs, StringFormat=F2}" />
-                  <DataGridTextColumn Header="변환 ms" Binding="{Binding ConversionMs, StringFormat=F2}" />
-                  <DataGridTextColumn Header="전체 ms" Binding="{Binding TotalMs, StringFormat=F2}" />
-                  <DataGridTextColumn Header="byte" Binding="{Binding TransferBytes}" />
-                </DataGrid.Columns>
-              </DataGrid>
-            </StackPanel>
-          </ScrollViewer>
-        </TabItem>
-      </TabControl>
+      <Image Source="{Binding Preview}" Stretch="Uniform" AutomationProperties.AutomationId="DiagnosticPreview" />
     </Border>
   </Grid>
 </UserControl>

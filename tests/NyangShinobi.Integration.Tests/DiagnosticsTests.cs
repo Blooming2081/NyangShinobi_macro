@@ -190,11 +190,31 @@ public sealed class DiagnosticsTests
         finally { await main.StopAsync(); }
     }
 
+    [Fact]
+    public async Task ServiceSerializesPngCapturesAndCancellationReleasesNextRequest()
+    {
+        using var fixture = new Fixture();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        fixture.Adb.HoldCapture = true;
+        var first = fixture.Service.CaptureAsync("fake-adb", "selected", cancellation.Token);
+        await fixture.Adb.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), Token);
+        var second = fixture.Service.CaptureAsync("fake-adb", "selected", Token);
+        Assert.False(second.IsCompleted);
+        Assert.Equal(1, fixture.Adb.Captures);
+        fixture.Adb.HoldCapture = false;
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+        var frame = await second.WaitAsync(TimeSpan.FromSeconds(5), Token);
+        Assert.Equal(480, frame.Frame.Width);
+        Assert.Equal(2, fixture.Adb.Captures);
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly TemplateRepository repository = new(AppContext.BaseDirectory, new VisionOptions());
         private readonly OpenCvVisionEngine engine;
         public FakeAdb Adb { get; }
+        public CaptureDiagnostics Service { get; }
         public DiagnosticsViewModel View { get; }
 
         public Fixture(string devices = "selected device")
@@ -205,9 +225,9 @@ public sealed class DiagnosticsTests
             using (var roi = new Mat(image, new Rect(20, 100, template.Width, template.Height))) template.CopyTo(roi);
             Cv2.ImEncode(".png", image, out var png);
             Adb = new FakeAdb(png) { Devices = devices };
-            var service = new CaptureDiagnostics(new AdbOptions { ExecutablePath = "fake-adb" },
+            Service = new CaptureDiagnostics(new AdbOptions { ExecutablePath = "fake-adb" },
                 new PngFrameDecoder(new VisionOptions()), new SystemGameClock(), engine, repository, _ => Adb);
-            View = new DiagnosticsViewModel(service);
+            View = new DiagnosticsViewModel(Service);
         }
 
         public void Dispose() { engine.Dispose(); repository.Dispose(); }

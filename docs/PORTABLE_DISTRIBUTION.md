@@ -7,8 +7,6 @@
 3. 사용자가 MuMu/BlueStacks를 실행하고 ADB 사용 및 연결을 준비합니다. **개발자 진단** 탭의 기본 `adb.exe`는 앱 실행 파일 옆의 동봉 ADB를 사용합니다. 별도 ADB 설치나 PATH 설정은 필요 없습니다. 장치 조회 후 serial을 직접 선택하며 자동 선택하지 않습니다. 앱플레이어와 게임은 ZIP에 포함하지 않습니다.
 4. 메모리 스크린샷을 캡처하고 에셋/ROI를 선택해 일치율을 측정합니다. PNG는 저장 버튼으로 경로를 명시했을 때만 저장합니다. 진단은 터치·스와이프를 보내지 않습니다.
 
-캡처 방식 비교는 같은 진단 화면 아래 **RAW vs PNG** 탭의 **RAW vs PNG 벤치마크**를 누릅니다. 직접 선택한 ADB/serial로 예열 후 각 10회를 교대로 측정합니다. 결과는 메모리만 사용하며 기본 PNG 방식은 바뀌지 않습니다. **진단 취소**로 중단할 수 있고 측정 중 일반 실행·다른 진단은 차단됩니다.
-
 새 포터블은 실제 버전 `app/version.json`과 전체 배포 관리 파일 목록 `app/install-manifest.json`(schema 2)을 포함합니다. **업데이트** 탭에서 Stable / Pre-release (테스트) 두 채널을 확인하고, 매크로/진단 중지 및 동의 후 백업·설치·재실행합니다. **구형 평면 배포와 새 app/ 구조 사이의 자동 전환은 차단합니다.** ZIP을 기존 폴더에 덮어쓰지 말고 새 폴더에 수동 설치하세요. `%LocalAppData%/NyangShinobi` 설정은 계속 사용하며, 구형 폴더의 개인 파일/스크린샷은 따로 보관합니다. [업데이트/복원 안내](https://github.com/Blooming2081/NyangShinobi_macro/blob/HEAD/docs/AUTO_UPDATE.md)를 확인하세요.
 
 시작/중지는 현재 게임 입력 없는 골격 세션입니다. Task 03의 임무 진행은 구현되지 않았습니다. 기존 사용자 설정 파일이 있으면 `%LocalAppData%/NyangShinobi/settings.v0.1.json`을 우선 읽고, 없으면 `app/data/settings.default.v0.1.json`을 사용합니다. 포터블은 설치 프로그램이 없는 폴더 배포이며, 이 기존 설정 위치는 변경하지 않았습니다.

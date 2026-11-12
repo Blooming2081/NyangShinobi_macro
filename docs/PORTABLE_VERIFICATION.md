@@ -1,5 +1,31 @@
 # Windows x64 포터블 배포 검증 기록
 
+## 2026-11-12 — RC.4: 캡처 비교 기능 제거 / Task 03 이전 기준점
+
+개발자 진단의 캡처 비교 하위 탭·버튼·통계/결과 표, 전용 실행기·RAW 변환기·결과 모델과 37개 전용 테스트 및 사용 안내를 제거했습니다. 스크린샷은 하위 탭 없이 기존 미리보기에 표시합니다. 유지할 PNG 진단의 직렬화/취소 검증은 PNG 요청 두 개를 사용하는 공통 테스트 1개로 남겼습니다.
+
+| 로컬 회귀 검사 | 결과 |
+|---|---|
+| 전체 restore / Release build / 자체 포함 publish | 성공, 경고 0 / 오류 0 |
+| 전체 자동 테스트 | **167 통과 / 0 실패 / 0 건너뜀** (203 - 전용 37 + PNG 직렬화 1) |
+| 프로젝트별 | Domain 8, Application 26, Features 2, Integration 131 |
+| WPF 진단 | CMD 실행, 장치 미선택, 에셋 79개, 하위 탭 없는 미리보기 확인 |
+| 게시/이동 ZIP EXE | 동봉 .NET 10.0.15 / X64 / 로컬 OpenCV / PNG 디코딩·합성 ROI 점수 1.0 |
+| 이동 경로 GUI | 한글·공백·특수문자 경로에서 CMD→WPF→진단 및 절대 번들 ADB 경로 확인 |
+| 실제 별도 도우미 / 실패 / 복원 | 격리 설치·창 없는 재실행, 손상 EXE 실행 실패 후 롤백, 개인 설정/스크린샷 보존 통과 |
+| 명세·에셋 / actionlint / workflow 분기 | 통과, 가짜 gh의 Stable/RC 및 실패 차단 12개 통과 |
+| 제거 코드 미사용 참조 | src/tests/tools에서 제거한 타입·바인딩·RAW 실행 경로 참조 없음 |
+
+로컬 사전 검증 출력은 `artifacts/portable/20261112-193749-363/`의 TRX, 게시/ZIP 자가 검사, `wpf-ui-check.json`, `zip-wpf-ui-check.json`입니다. 도우미 결과는 `artifacts/update-install/20261112-194014-383/report.json`, 분기 검사는 `artifacts/release-policy/45b97a479a3f2413/`입니다. 사전 ZIP은 커밋 전 소스로 검증한 것이며 공개 배포용 ZIP은 **태그 Actions에서 해당 커밋으로 다시 생성**합니다. 공개 ZIP 검증에는 Release에 첨부된 SHA-256을 사용합니다.
+
+제거 파일: `Diagnostics/CaptureBenchmark.cs`, `CaptureBenchmarkResult.cs`, `RawBenchmarkDecoder.cs`, `Integration.Tests/CaptureBenchmarkTests.cs`, `docs/CAPTURE_BENCHMARK.md`. 진단 서비스/ViewModel/XAML·기존 WPF 테스트·PNG 진단 테스트·배포 GUI 검사 스크립트와 현재 안내/Release 노트를 정리했습니다. 오래된 비교 기능 전용 검증 절은 삭제했습니다.
+
+PNG 캡처·에셋/ROI 인식·ADB 입력/세션 취소, 3초/500ms 정책, 자동 업데이트/롤백, Stable/Pre-release 두 채널과 app/ 구조는 유지합니다. 캡처/입력/비전/게임 구현·임계값·이미지 원본·프로젝트/패키지는 변경하지 않았습니다. 앞서 검증한 app/ 배포 정리는 별도 커밋 `c080294`로 보존했습니다.
+
+원격 태그 RC.1~RC.3과 인증된 Release/draft 목록을 확인해 비어 있는 **`v0.1.0-rc.4`**를 선택했습니다. 이 태그의 제거 완료 커밋을 Task 03 이전 기준점으로 사용하며 기존 태그를 이동하거나 재사용하지 않습니다. GitHub의 실제 실행/게시 성공 여부는 해당 태그의 [Actions](https://github.com/Blooming2081/NyangShinobi_macro/actions)와 [Release 및 ZIP/SHA 첨부](https://github.com/Blooming2081/NyangShinobi_macro/releases/tag/v0.1.0-rc.4)를 별도로 확인합니다. 이 절의 표는 로컬 결과입니다.
+
+Task 03의 임무 자동화는 이 Release에 포함하지 않습니다. 다음 개발은 RC.4 커밋을 기준으로 별도 커밋에서 시작합니다. 실제 MuMu/BlueStacks 성능/정확도, 깨끗한 새 Windows PC와 실제 사용자 폴더의 GUI 업데이트 전 과정은 이번 로컬 검증 범위에 포함하지 않습니다. 평면 구조인 구형 배포 사용자는 새 폴더에 수동 설치해야 합니다.
+
 ## 2026-11-12 — 사용자용 app/ 배포 구조
 
 최상위에는 `냥냥시노비 실행.cmd`, `사용 설명서.txt`, `app/`만 배포합니다. CMD는 `%~dp0` 기준으로 `app/NyangShinobi.App.exe`를 실행하며 절대 경로를 저장하는 바로가기, 두 번째 런타임, 관리자 권한 상승을 사용하지 않습니다. 원래 런타임/DLL 배치는 `app/` 안에서 유지하고 에셋·설정·ADB 경로는 앱의 콘텐츠 기준 경로로 구성합니다. 상세 안내는 [포터블 배포 안내](PORTABLE_DISTRIBUTION.md)를 따릅니다.
@@ -143,51 +169,6 @@ ZIP SHA256: 0168FA8AE505038A32530F207ED966EA87CD0948605F348DC6E79B28E7F6845D
 새 프로젝트·외부 패키지는 추가하지 않았습니다. 기존 EXE/런타임을 도우미 임시 폴더로 복사하며 ZIP에는 추가 런타임이 없습니다. 설치 중에는 복사본·추출본·백업 디스크 공간이 필요합니다. 게임/이미지 인식/PNG 기본 방식·3초/500ms 정책은 변경하지 않았으며 Task 03은 구현하지 않았습니다.
 
 남은 실제 배포 검증은 메타데이터를 포함한 신규 RC Release 게시→앱 UI 선택→정상 사용자 폴더 설치·GUI 재실행입니다. 현재 공개된 구형 Release는 자동 설치 대상이 아니므로 **새 포맷 포터블의 초기 수동 설치 및 신규 Release 게시가 실사용 전제**입니다. 정식 Stable Release가 아직 없을 때 정식 채널에 업데이트가 없는 것은 정상입니다.
-
-## 2026-11-12 — RAW vs PNG 개발자 벤치마크
-
-[사용법과 측정 정의](CAPTURE_BENCHMARK.md)에 따라 기존 개발자 진단 탭에 수동 벤치마크를 추가했습니다. **실제 MuMu/BlueStacks 캡처나 성능 측정은 하지 않았습니다.** 아래 값은 자동 검증 결과이며 가짜 ADB 실행 시간은 실기 성능으로 제시하지 않습니다. 새 GitHub Actions 실행도 수행하지 않았습니다.
-
-| 검사 | 로컬 결과 |
-|---|---|
-| `dotnet restore` | 성공 |
-| 전체 Release build | 경고 0 / 오류 0 |
-| 신규 벤치마크 테스트 | **37 통과 / 0 실패** |
-| 전체 테스트 | 기존 84 + 신규 37 = **121 통과 / 0 실패 / 0 건너뜀** |
-| 프로젝트별 | Domain 8, Application 26, Features 2, Integration 85 |
-| 명세·에셋 | PASS: 86 catalog assets, 7 project specs, 6 modules, 1 event definitions |
-| GitHub workflow 정적 검사 | actionlint 통과, Release 조건·권한 변경 없음 |
-| 포터블/ZIP EXE 실행 | 각각 동봉 .NET 10.0.15, X64, 템플릿 79, 합성 ROI score 1.0 |
-| 동봉 ADB | 게시 및 ZIP 재압축 해제 경로에서 오프라인 `adb version` 성공 |
-| 경계 보존 | 게임 캡처/스케줄러/입력 시퀀서/비전 엔진·원본 에셋·패키지·프로젝트·배포 스크립트 변경 없음 |
-
-가짜 ADB 테스트는 예열 제외·10회씩 순서 교대·직접 선택한 경로/serial·회차별 시간/크기/해상도, 두 방식 BGRA32 생성, RAW 12/16바이트 헤더와 RGBA/RGBX/BGRA 변환을 확인했습니다. 잘못된 해상도·버퍼 길이·stride·오버플로·미지원 형식/색공간·PNG 헤더/payload·ADB 비정상 종료/timeout도 검증했습니다. 픽셀 일치를 요구하지 않도록 PNG/RAW 해상도가 다른 경우도 통과했습니다.
-
-취소/창 닫기, 일반 매크로·다른 진단·중복 요청 차단, 진단 서비스의 캡처 직렬화, 마지막 화면/결과 수명, 실제 WPF 버튼 바인딩을 확인했습니다. 기존 실제 OS CLI의 timeout/취소·소유 프로세스 회수 테스트도 전체 테스트에서 유지했습니다.
-
-실행한 포터블 명령:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/Publish-Portable.ps1 -PackageVersion 0.1.0-dev.raw-benchmark
-```
-
-출력: `artifacts/portable/20261112-131001-898/NyangShinobi-v0.1.0-dev.raw-benchmark-win-x64.zip`
-
-```text
-SHA256: 44E2B6A2CFD8A20C46E3249E09D4127A7C19C5D5545F740E8F3A539DFC61A82A
-```
-
-같은 시각 폴더에 전체 4개 TRX, native 의존성, 게시/ZIP EXE 및 ADB 검사 보고서가 있습니다. 신규 테스트만 실행한 TRX는 `artifacts/capture-benchmark/final-focused/`에 있습니다. 모두 Git 제외 생성물입니다.
-
-생성·수정 파일:
-
-- 신규 `src/NyangShinobi.App/Diagnostics/CaptureBenchmark.cs`: 제한된 순차 ADB 캡처·예열·교대·시간/크기 측정·오류/취소 결과.
-- 신규 `CaptureBenchmarkResult.cs`, `RawBenchmarkDecoder.cs` (같은 Diagnostics 폴더): 통계/표본/지원 결과, 벤치마크 전용 RAW 검증·BGRA32 변환.
-- 기존 `CaptureDiagnostics.cs`, `DiagnosticsViewModel.cs`, `DiagnosticsView.xaml` (같은 폴더): runner 재사용·직렬화·기존 작업 잠금·진행/결과 UI.
-- 신규 `tests/NyangShinobi.Integration.Tests/CaptureBenchmarkTests.cs`, 기존 `WindowLifecycleTests.cs`: 가짜 ADB·RAW·통계·취소/오류·상호 배제·WPF 바인딩.
-- 신규 `docs/CAPTURE_BENCHMARK.md`, 기존 `README.md`, `docs/TASK02_DIAGNOSTICS.md`, `docs/PORTABLE_DISTRIBUTION.md`, 이 기록: 사용법과 검증 범위.
-
-실기에서 남은 항목은 MuMu/BlueStacks의 실제 RAW 헤더/색상/회전 지원, 같은 조건에서 시간·전송 크기 분포 및 취소 응답입니다. 검증 결과만으로 RAW 전환을 결정하지 않았으며, 기본 PNG와 3초/500ms 정책 및 Task 03 미구현 상태를 유지합니다.
 
 ## 2026-11-12 — CI 프로세스 경계 테스트의 준비 동기화 수정
 

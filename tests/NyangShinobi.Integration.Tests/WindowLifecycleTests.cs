@@ -62,6 +62,10 @@ public sealed class WindowLifecycleTests
                     await viewModel.Completion;
                     var tabs = Assert.IsType<TabControl>(window.Content);
                     tabs.SelectedIndex = 1;
+                    var diagnostics = Descendants(window).OfType<DiagnosticsView>().Single();
+                    Assert.Empty(Descendants(diagnostics).OfType<TabControl>());
+                    Assert.Single(Descendants(diagnostics).OfType<Image>(), image =>
+                        AutomationProperties.GetAutomationId(image) == "DiagnosticPreview");
                     await viewModel.Diagnostics.RefreshDevicesAsync();
                     await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                     var selector = Descendants(window).OfType<ComboBox>().Single(item =>
@@ -69,14 +73,11 @@ public sealed class WindowLifecycleTests
                     Assert.Single(selector.Items.Cast<object>());
                     Assert.Null(selector.SelectedItem);
                     Assert.False(FindButton(window, "DiagnosticCapture").IsEnabled);
-                    Assert.False(FindButton(window, "DiagnosticBenchmark").IsEnabled);
-                    Assert.Same(viewModel.Diagnostics.BenchmarkCommand, FindButton(window, "DiagnosticBenchmark").Command);
                     Assert.False(FindButton(window, "DiagnosticSave").IsEnabled);
                     Assert.Same(viewModel.Diagnostics.DevicesCommand, FindButton(window, "DiagnosticDevices").Command);
                     selector.SelectedIndex = 0;
                     await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                     Assert.True(FindButton(window, "DiagnosticCapture").IsEnabled);
-                    Assert.True(FindButton(window, "DiagnosticBenchmark").IsEnabled);
                     viewModel.Diagnostics.AdbPath = "changed-adb.exe";
                     await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                     Assert.Null(selector.SelectedItem);
