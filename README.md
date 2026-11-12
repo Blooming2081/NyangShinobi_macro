@@ -8,10 +8,13 @@ Windows x64 · C# · .NET 10 · WPF 신규 개발 프로젝트입니다. 현재 
 
 개발·Codex 작업은 [통합 시작 안내](docs/START_HERE.md)와 [AGENTS.md](AGENTS.md)를 먼저 읽습니다. 기존 루트의 시작 안내 두 문서는 통합했으며, 과거 설계 변경 이력은 [docs/changelog/](docs/changelog/)로 옮겼습니다.
 
+**GitHub 자동 배포:** [Push Artifact·태그 Pre-release·다운로드 안내](docs/GITHUB_DISTRIBUTION.md)를 참조하세요. ZIP에는 .NET/WPF/OpenCV와 ADB 및 이미지·기본 설정을 함께 포함합니다.
+
 ## 폴더 구성
 
 ```text
 NyangShinobi/
+├── .github/workflows/portable.yml      # Push 검증/Artifact + 태그 Pre-release
 ├── AGENTS.md
 ├── README.md
 ├── NyangShinobi.slnx
@@ -28,6 +31,7 @@ NyangShinobi/
 │   ├── TASK02_CAPTURE_VISION.md
 │   ├── TASK02_DIAGNOSTICS.md
 │   ├── PORTABLE_DISTRIBUTION.md
+│   ├── GITHUB_DISTRIBUTION.md
 │   ├── PORTABLE_VERIFICATION.md
 │   └── changelog/                     # 과거 설계 변경 이력 2개
 ├── src/
@@ -49,6 +53,8 @@ NyangShinobi/
 ├── reference/legacy_v206_methods/      # 읽기 전용 v2.0.6 참조
 ├── tools/
 │   ├── validate_spec.py                # Git으로 관리하는 명세 검증 도구
+│   ├── Copy-PortableAdb.ps1             # 고정 SHA-256의 공식 ADB 번들
+│   ├── dependencies/platform-tools.windows.json
 │   └── Publish-Portable.ps1            # Release 검증 / 자체 포함 게시 / ZIP
 ├── artifacts/portable/                 # 배포 폴더·ZIP·검증 결과, Git 제외
 ├── .tools/                            # 로컬 SDK/캐시, Git 제외
@@ -99,6 +105,6 @@ $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
 - 이벤트 핸들러는 기본 0개이며 `AddGameEventHandler<T>()`로 독립 등록할 수 있습니다. 예시 JSON을 로드하거나 활성화하지 않습니다.
 - **개발자 진단** 탭에서 ADB 경로 지정 → 장치 조회·직접 선택 → 메모리 스크린샷 → 에셋/ROI 선택·일치율 측정을 수행합니다. 캡처/디코딩/인식 시간과 해상도를 표시하며, PNG는 저장 버튼으로 경로를 확인했을 때만 저장합니다. 진단에는 터치·스와이프가 없습니다.
 
-UI 시작 버튼은 위 장치 API를 자동으로 호출하지 않습니다. 실제 사용에는 사용자가 준비한 ADB 실행 파일과 명시적 serial, 장치 세션 scope와 취소 토큰이 필요합니다. 원본 v2.0.6 흐름 및 에셋은 변경하지 않았습니다.
+UI 시작 버튼은 위 장치 API를 자동으로 호출하지 않습니다. 실제 사용에는 동봉 또는 사용자가 지정한 ADB 실행 파일과 명시적 serial, 장치 세션 scope와 취소 토큰이 필요합니다. 원본 v2.0.6 흐름 및 에셋은 변경하지 않았습니다.
 
 수동 실기 확인 방법은 [개발자 진단 안내](docs/TASK02_DIAGNOSTICS.md), 기반 API는 [Task 02 결과](docs/TASK02_CAPTURE_VISION.md), 초기 골격 기록은 [Task 01 결과](docs/TASK01_FOUNDATION.md)를 참조하세요. 임무·거울 진행, 날짜 팝업/광고/뽑기/이벤트 실행은 후속 Task이며 Task 03은 아직 시작하지 않았습니다. 실제 앱플레이어의 성능·정확도는 미검증입니다.

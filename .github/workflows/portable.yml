@@ -1,0 +1,126 @@
+name: Windows portable
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Validate and package Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 30
+    outputs:
+      artifact_name: ${{ steps.package.outputs.package_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          architecture: x64
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Validate specifications and original assets
+        shell: pwsh
+        run: |
+          python tools/validate_spec.py
+          if ($LASTEXITCODE -ne 0) { throw 'Specification/asset validation failed.' }
+      - name: Restore, Release build, all tests, publish and verify ZIP
+        id: package
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            ./tools/Publish-Portable.ps1 -ReleaseTag $env:GITHUB_REF_NAME
+          }
+          else {
+            [xml]$props = Get-Content Directory.Build.props
+            $version = [string]$props.Project.PropertyGroup.Version
+            $shortSha = $env:GITHUB_SHA.Substring(0, 8)
+            ./tools/Publish-Portable.ps1 -PackageVersion "$version-dev.$env:GITHUB_RUN_NUMBER.$shortSha"
+          }
+      - name: Upload validated portable ZIP and checksum
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.package.outputs.package_name }}
+          path: |
+            ${{ steps.package.outputs.zip_path }}
+            ${{ steps.package.outputs.sha_path }}
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 0
+          retention-days: 14
+      - name: Upload test and verification reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/portable/**/tests/*.trx
+            artifacts/portable/**/*-check.json
+            artifacts/portable/**/*-check.txt
+            artifacts/portable/**/native-dependencies.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release:
+    name: Publish pre-release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download this run's validated package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: release-files
+      - name: Verify checksum and publish as pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          zip="release-files/NyangShinobi-${RELEASE_TAG}-win-x64.zip"
+          expected=$(tr -d '[:space:]' < "$zip.sha256" | tr '[:upper:]' '[:lower:]')
+          [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
+          printf '%s  %s\n' "$expected" "$zip" | sha256sum --check --strict
+          cat > release-notes.md <<EOF
+          개발 중인 냥냥시노비 Windows x64 포터블 빌드입니다.
+
+          버전: ${RELEASE_TAG}
+          소스: ${SOURCE_SHA}
+
+          ZIP 전체를 풀고 NyangShinobi.App.exe를 실행하세요.
+          .NET 10 런타임, OpenCvSharp, 이미지/설정 및 ADB가 포함됩니다.
+          앱플레이어는 사용자가 실행하고 ADB 연결 및 serial을 직접 선택해야 합니다.
+          Task 03의 게임 진행 기능은 아직 구현하지 않았습니다.
+          실행 조건과 사용법은 ZIP 내부 PORTABLE_README.md를 확인하세요.
+          EOF
+          if existing=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' 2>/dev/null); then
+            if [[ "$existing" != 'true' ]]; then
+              echo 'A published release already exists; refusing to replace its assets.' >&2
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --latest=false \
+              --title "NyangShinobi ${RELEASE_TAG} (pre-release)" --notes-file release-notes.md
+          fi
+          gh release upload "$RELEASE_TAG" "$zip" "$zip.sha256" --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false \
+            --notes-file release-notes.md
