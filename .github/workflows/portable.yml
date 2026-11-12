@@ -36,6 +36,8 @@ jobs:
         run: |
           python tools/validate_spec.py
           if ($LASTEXITCODE -ne 0) { throw 'Specification/asset validation failed.' }
+          python tools/Test-ReleasePolicy.py
+          if ($LASTEXITCODE -ne 0) { throw 'Stable/pre-release branch validation failed.' }
       - name: Restore, Release build, all tests, publish and verify ZIP
         id: package
         shell: pwsh
@@ -47,8 +49,15 @@ jobs:
             [xml]$props = Get-Content Directory.Build.props
             $version = [string]$props.Project.PropertyGroup.Version
             $shortSha = $env:GITHUB_SHA.Substring(0, 8)
-            ./tools/Publish-Portable.ps1 -PackageVersion "$version-dev.$env:GITHUB_RUN_NUMBER.$shortSha"
+            ./tools/Publish-Portable.ps1 -PackageVersion "$version-dev.$env:GITHUB_RUN_NUMBER.g$shortSha"
           }
+      - name: Verify updater helper and rollback on isolated portable copies
+        shell: pwsh
+        env:
+          UPDATE_PUBLISH_ROOT: ${{ steps.package.outputs.run_root }}
+          UPDATE_PACKAGE_NAME: ${{ steps.package.outputs.package_name }}
+        run: |
+          ./tools/Test-UpdateInstall.ps1 -PublishedFolder (Join-Path $env:UPDATE_PUBLISH_ROOT $env:UPDATE_PACKAGE_NAME)
       - name: Upload validated portable ZIP and checksum
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -70,11 +79,14 @@ jobs:
             artifacts/portable/**/*-check.json
             artifacts/portable/**/*-check.txt
             artifacts/portable/**/native-dependencies.json
+            artifacts/update-install/**/report.json
+            artifacts/update-install/**/result.json
+            artifacts/update-install/**/journal.json
           if-no-files-found: ignore
           retention-days: 14
 
   release:
-    name: Publish pre-release
+    name: Publish release
     needs: build
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
@@ -87,7 +99,7 @@ jobs:
         with:
           name: ${{ needs.build.outputs.artifact_name }}
           path: release-files
-      - name: Verify checksum and publish as pre-release
+      - name: Verify checksum and publish release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -96,14 +108,24 @@ jobs:
           SOURCE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          version="${version%%+*}"
+          if [[ "$version" == *-* ]]; then
+            prerelease=true
+            release_kind='Pre-release'
+          else
+            prerelease=false
+            release_kind='Stable'
+          fi
           zip="release-files/NyangShinobi-${RELEASE_TAG}-win-x64.zip"
           expected=$(tr -d '[:space:]' < "$zip.sha256" | tr '[:upper:]' '[:lower:]')
           [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
           printf '%s  %s\n' "$expected" "$zip" | sha256sum --check --strict
           cat > release-notes.md <<EOF
-          개발 중인 냥냥시노비 Windows x64 포터블 빌드입니다.
+          냥냥시노비 Windows x64 포터블 배포입니다.
 
           버전: ${RELEASE_TAG}
+          출시 채널: ${release_kind}
           소스: ${SOURCE_SHA}
 
           ZIP 전체를 풀고 NyangShinobi.App.exe를 실행하세요.
@@ -118,9 +140,9 @@ jobs:
               exit 1
             fi
           else
-            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --latest=false \
-              --title "NyangShinobi ${RELEASE_TAG} (pre-release)" --notes-file release-notes.md
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease="$prerelease" --latest=false \
+              --title "NyangShinobi ${RELEASE_TAG} (${release_kind})" --notes-file release-notes.md
           fi
           gh release upload "$RELEASE_TAG" "$zip" "$zip.sha256" --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false \
-            --notes-file release-notes.md
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease="$prerelease" --latest=false \
+            --title "NyangShinobi ${RELEASE_TAG} (${release_kind})" --notes-file release-notes.md

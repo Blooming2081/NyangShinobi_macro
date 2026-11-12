@@ -4,6 +4,7 @@
 **/TestResults/
 # Portable publish folders, ZIPs and validation reports
 /artifacts/
+**/.updates/
 *.trx
 *.coverage
 *.coveragexml

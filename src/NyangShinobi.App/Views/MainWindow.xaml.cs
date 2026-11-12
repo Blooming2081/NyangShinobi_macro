@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using NyangShinobi.App.ViewModels;
+using System.Windows.Controls;
 
 namespace NyangShinobi.App.Views;
 
@@ -15,6 +16,12 @@ public partial class MainWindow : Window
         InitializeComponent();
         this.viewModel = viewModel;
         DataContext = viewModel;
+        if (viewModel.Updates is { } updates) updates.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(updates.HasUpdate) && updates.HasUpdate &&
+                !viewModel.IsRunning && !viewModel.Diagnostics.IsBusy && Content is TabControl tabs)
+                tabs.SelectedIndex = 2;
+        };
     }
 
     protected override async void OnClosing(CancelEventArgs e)

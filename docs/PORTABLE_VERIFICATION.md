@@ -1,5 +1,86 @@
 # Windows x64 포터블 배포 검증 기록
 
+## 2026-11-12 — Stable / Pre-release 최종 배포 정책
+
+UI의 `Development`만 **Pre-release (테스트)**로 표시합니다. 내부 enum과 저장 값 `Development=0`/`Stable=1`은 유지하며 채널은 두 개입니다. 기존 설정 파일을 읽어도 다시 쓰지 않는 호환성 테스트 2개를 추가했습니다. Stable의 정식 전용 필터와 Pre-release의 RC·정식 비교는 기존 구현/테스트를 유지했습니다.
+
+| 검증 | 결과 |
+|---|---|
+| restore / 전체 Release build / 자체 포함 publish | 성공 |
+| 전체 .NET 테스트 | **189 통과 / 0 실패 / 0 건너뜀** (Domain 8, Application 26, Features 2, Integration 153) |
+| 실제 workflow 게시 블록 + 가짜 gh | **12개 통과**, GitHub 요청/게시 없음 |
+| `v0.1.0` / 기존 호환 `v0.1` | 생성·공개 모두 `--prerelease=false`, Stable 제목·노트 확인 |
+| `v0.1.0-rc.3` / `v0.1.0-rc.10` | 생성·공개 모두 `--prerelease=true`, Pre-release 제목·노트 확인 |
+| 기존 draft 재시도 | Stable / RC 모두 올바른 채널로 공개 |
+| 공개 Release 덮어쓰기 / 잘못된 해시 / 업로드 실패 | Stable / RC 모두 공개 차단 |
+| 명세·원본 에셋 / actionlint / diff 공백 검사 | 통과 |
+| 게시 폴더 및 ZIP 재압축 해제 EXE | 실제 실행 성공, 동봉 .NET 10.0.15 / X64 / 템플릿 79 / 합성 ROI 점수 1.0 |
+| 격리 복사본의 실제 업데이트 도우미 | 설치·창 없는 재실행 확인 / 손상 EXE 설치 실패 후 롤백 / 개인 파일 보존 통과 |
+
+배포본은 `artifacts/portable/20261112-161536-817/NyangShinobi-v0.1.0-dev.0.channel-policy-win-x64.zip`이며 **118,949,191 bytes**입니다. SHA-256: `07E5F5EEE0D3518CB3F3B9C2D52E77CBC2463E6BF5337F0EBF5E1C0970769A1E`. 테스트 TRX와 게시/ZIP/ADB 검증 JSON은 같은 시각 폴더, 분기 검사 로그는 `artifacts/release-policy/b901a41af297c5ba/`에 있습니다.
+
+최신 배포본으로 실행한 `tools/Test-UpdateInstall.ps1` 결과는 `artifacts/update-install/20261112-161743-146/report.json`입니다. 정상 설치 및 재실행은 창 없는 검증 모드로 확인했고, 별도 실패용 복사본은 실제 Win32 EXE 실행 실패를 유도해 이전 버전과 개인 설정/스크린샷이 복원·보존됨을 확인했습니다. 실제 사용자 설치 폴더와 설정은 변경하지 않았습니다.
+
+이번 정책 정리 대상은 `UpdatesView.xaml`, `UpdateChannelLabelConverter.cs`, `UpdateViewModel.cs`의 안내 문구, `UpdateViewModelTests.cs`, `.github/workflows/portable.yml`, `tools/Test-ReleasePolicy.py` 및 README/배포·업데이트 문서입니다. 다운로드·SemVer·ZIP 검증·파일 교체·롤백·개인 설정 보존·종료 인계를 담당하는 기존 파일 11개의 작업 전후 SHA-256이 일치했습니다. 게임/앱플레이어 강제 종료, ADB 서버 재시작, 새 채널·프로젝트·패키지와 Task 03 기능은 추가하지 않았습니다.
+
+**실제 GitHub Actions에서 이 정책 변경을 실행하거나 Stable/RC Release를 게시하지 않았습니다.** 태그 Push 후 Windows 러너의 전체 검증과 Release 배지·첨부 ZIP·버전 메타데이터를 확인해야 합니다. 새 포맷 RC→RC 및 RC→Stable의 실제 사용자 GUI 업데이트, 깨끗한 새 Windows PC, 실제 MuMu/BlueStacks 상태 유지도 추가 실기 검증 항목입니다. 아래 기록은 정책 변경 전의 이력입니다.
+
+## 2026-11-12 — GitHub Releases 자동 업데이트
+
+[사용법·안전 조건](AUTO_UPDATE.md)에 따라 앱 시작 1회 확인, 수동 확인, Development/Stable 채널, SemVer 비교, 동의 후 다운로드/설치, 백업·롤백 및 재실행을 구현했습니다. **신규 포맷을 GitHub Release로 게시한 뒤 실제 사용자 설치 폴더에 적용하는 전체 과정은 아직 검증하지 않았습니다.** 아래는 가짜 서버 테스트, 실제 공개 서버 다운로드 및 격리 설치 테스트를 구분한 기록입니다. 업데이트 코드의 GitHub Actions 실행/신규 Release 게시도 아직 하지 않았습니다.
+
+### 최종 로컬 자동 검증
+
+| 항목 | 결과 |
+|---|---|
+| 전체 restore / Release build | 성공, 경고 0 / 오류 0 |
+| 전체 테스트 | 기존 121 + 신규 66 = **187 통과 / 0 실패 / 0 건너뜀** |
+| 프로젝트별 | Domain 8, Application 26, Features 2, Integration 151 |
+| 명세/에셋 및 워크플로 정적 검사 | 기존 명세 PASS, actionlint 통과 |
+| 포터블/ZIP 자가 검사 | 동봉 .NET 10.0.15, X64, 템플릿 79, 합성 ROI score 1.0, 실제 배포 버전 일치 |
+| 배포 메타데이터 | `version.json`, 전체 관리 파일 SHA-256/크기의 `install-manifest.json` 포함 및 검증 |
+
+SemVer RC 숫자·정식·build metadata·잘못된 형식/개행, 새 버전 있음/없음, 채널 필터, 네트워크 오류, HTTPS/host 리다이렉트 제한, 크기/해시, 다운로드 취소/스트림 해제, 손상 ZIP/버전 불일치/경로 이탈/예약 이름/대소문자 중복/링크를 검사했습니다. 실제 Windows 파일 잠금으로 부분 교체 실패와 롤백, 재실행 실패의 롤백, 새 프로세스가 살아 있을 때 위험한 롤백 중단, 개인 파일 충돌·보존도 검사했습니다.
+
+시작 시 1회 확인·나중에/수동 확인, 실행 중 매크로/진단 보호, 다운로드 중 시작된 매크로 보호, 인계 전 종료 확인·실패 시 UI 복구, 동일 설치 폴더의 GUI 중복 실행·설치 잠금, WPF 바인딩을 확인했습니다. 기존 임무/거울/비전/PNG/RAW 벤치마크 테스트는 유지합니다.
+
+최종 배포 출력:
+
+```text
+artifacts/portable/20261112-155754-564/
+├── NyangShinobi-v0.1.0-dev.0.updater-win-x64/
+├── NyangShinobi-v0.1.0-dev.0.updater-win-x64.zip
+├── NyangShinobi-v0.1.0-dev.0.updater-win-x64.zip.sha256
+└── tests/  # 4개 TRX 및 같은 시각 폴더의 게시/ZIP/ADB 검사 보고서
+
+ZIP SHA256: 0168FA8AE505038A32530F207ED966EA87CD0948605F348DC6E79B28E7F6845D
+```
+
+### 실제 GitHub Releases 읽기/다운로드
+
+앱의 `--verify-update-source`를 네트워크 허용 환경에서 실행했습니다. 공개 `v0.1.0-rc.2`의 Windows x64 ZIP **122,249,236 bytes**를 HTTPS로 실제 다운로드했고 첨부 SHA-256과 일치했습니다. 이 구형 ZIP에는 `install-manifest.json`이 없어 자동 설치 가능한 패키지로는 거부됐으며 **설치는 하지 않았습니다**.
+
+결과 사본은 `.tools/updater-source-verification.json`에 있습니다. 원본 보고서/다운로드는 `artifacts/portable/20261112-144836-324/NyangShinobi-v0.1.0-rc.99-win-x64/.updates/0eb1c61a5cb142c0805af2af46720203/`에 있습니다. rc.99는 이전 로컬 검증용 이름이며 GitHub에 게시한 태그가 아닙니다. 이 실서버 검증은 최종본과 같은 HTTP/다운로드 로직을 사용합니다.
+
+### 실제 도우미 프로세스·격리 설치
+
+최종 배포본에 `tools/Test-UpdateInstall.ps1`을 실행했습니다. 대상은 원본 배포가 아닌 `artifacts/update-install/20261112-160011-208/app/` 복사본입니다. 테스트 전용 버전 rc.9001→rc.9002로 실제 별도 도우미가 관리 파일을 교체하고, 새 EXE가 자체 포함 런타임·PNG·템플릿·ROI 검사를 실행한 뒤 시작 응답을 남겼습니다.
+
+다음 rc.9003 복사본은 EXE를 의도적으로 손상시키고 파일 목록 해시를 맞춰 재실행 실패를 유도했습니다. 실제 Win32 실행 실패 후 rc.9002 파일/버전이 복원됐으며 복원된 EXE의 자가 검사도 통과했습니다. 앱 폴더의 개인 설정/스크린샷 파일이 그대로임을 확인했습니다. 실제 사용자 `%LocalAppData%` 설정을 변경하지 않았습니다. 첫 검증을 포함해 격리 설치/롤백 검사는 두 배포본에서 각각 통과했습니다.
+
+최종 결과: `artifacts/update-install/20261112-160011-208/report.json`. 정상 재실행은 창 없는 검증 모드를 사용했으며 **실제 사용자 GUI가 종료·재실행되는 현장 검증은 별도**입니다. GitHub Actions에도 같은 스크립트를 ZIP 업로드 앞 단계에 추가했지만 원격 실행 성공을 주장하지 않습니다.
+
+### 변경 파일과 남은 확인
+
+- 신규 `App/Updates/`: `SemVersion`, `UpdateFiles`(메타데이터/관리 목록/경로), `GitHubUpdateClient`, `UpdatePackage`, `UpdateInstaller`, `InstallRootGuard`, `UpdateCoordinator`, `UpdateViewModel`, `UpdatesView.xaml(.cs)`, `UpdateSourceVerification`.
+- 수정 `App.xaml.cs`, `DependencyInjection.cs`, `ViewModels/MainViewModel.cs`, `Views/MainWindow.xaml(.cs)`, `Diagnostics/PortableValidation.cs`: 시작/종료·DI·UI·자가 검사 연결.
+- 신규 통합 테스트 `UpdateReleaseTests`, `UpdatePackageTests`, `UpdateInstallerTests`, `UpdateViewModelTests`, `UpdateTestData`; 기존 `WindowLifecycleTests` 확장.
+- `tools/Publish-Portable.ps1`, 신규 `tools/Test-UpdateInstall.ps1`, `.github/workflows/portable.yml`, `.gitignore`, `README.md`, 배포/업데이트 안내 및 이 기록.
+
+새 프로젝트·외부 패키지는 추가하지 않았습니다. 기존 EXE/런타임을 도우미 임시 폴더로 복사하며 ZIP에는 추가 런타임이 없습니다. 설치 중에는 복사본·추출본·백업 디스크 공간이 필요합니다. 게임/이미지 인식/PNG 기본 방식·3초/500ms 정책은 변경하지 않았으며 Task 03은 구현하지 않았습니다.
+
+남은 실제 배포 검증은 메타데이터를 포함한 신규 RC Release 게시→앱 UI 선택→정상 사용자 폴더 설치·GUI 재실행입니다. 현재 공개된 구형 Release는 자동 설치 대상이 아니므로 **새 포맷 포터블의 초기 수동 설치 및 신규 Release 게시가 실사용 전제**입니다. 정식 Stable Release가 아직 없을 때 정식 채널에 업데이트가 없는 것은 정상입니다.
+
 ## 2026-11-12 — RAW vs PNG 개발자 벤치마크
 
 [사용법과 측정 정의](CAPTURE_BENCHMARK.md)에 따라 기존 개발자 진단 탭에 수동 벤치마크를 추가했습니다. **실제 MuMu/BlueStacks 캡처나 성능 측정은 하지 않았습니다.** 아래 값은 자동 검증 결과이며 가짜 ADB 실행 시간은 실기 성능으로 제시하지 않습니다. 새 GitHub Actions 실행도 수행하지 않았습니다.

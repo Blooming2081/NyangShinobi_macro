@@ -100,7 +100,7 @@ function Test-PortableExe {
         $errorText = $standardError.GetAwaiter().GetResult()
         if ($process.ExitCode -ne 0) { throw "Portable self-check failed: $errorText" }
         $result = $resultText | ConvertFrom-Json
-        if (-not $result.LocalRuntime -or $result.Architecture -ne 'X64' -or $result.Templates -le 0 -or $result.MatchScore -lt 0.999) {
+        if (-not $result.LocalRuntime -or $result.Architecture -ne 'X64' -or $result.Templates -le 0 -or $result.MatchScore -lt 0.999 -or $result.Version -ne $publishedVersion) {
             throw "Invalid portable self-check report: $resultText"
         }
         $resultText | Set-Content -LiteralPath $Report -Encoding UTF8
@@ -152,7 +152,7 @@ try {
     $version = [string]$buildProperties.Project.PropertyGroup.Version
     if ($ReleaseTag -and $PackageVersion) { throw 'Use either ReleaseTag or PackageVersion, not both.' }
     if ($ReleaseTag) {
-        if ($ReleaseTag -cnotmatch '^v(\d+\.\d+(?:\.\d+)?)(-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$') {
+        if ($ReleaseTag -cnotmatch '^v(\d+\.\d+(?:\.\d+)?)(-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z') {
             throw 'ReleaseTag must look like v0.1, v0.1.0 or v0.1.0-rc.1.'
         }
         $tagCore = $Matches[1]
@@ -161,10 +161,17 @@ try {
         $PackageVersion = $ReleaseTag.Substring(1)
     }
     elseif (-not $PackageVersion) { $PackageVersion = $version }
-    if ($PackageVersion -cnotmatch '^\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$') {
+    if ($PackageVersion -cnotmatch '\A\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z') {
         throw 'Invalid PackageVersion: only a numeric version and optional prerelease label are allowed.'
     }
     $packageName = "NyangShinobi-v$PackageVersion-win-x64"
+    $publishedVersion = $PackageVersion
+    if ($publishedVersion -match '^(\d+\.\d+)(-.*)?$') { $publishedVersion = $Matches[1] + '.0' + $Matches[2] }
+    if ($publishedVersion -cnotmatch '\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?\z') {
+        throw 'Package version must be valid SemVer.'
+    }
+    $pre = $Matches[4]
+    if ($pre -and @($pre.Split('.') | Where-Object { $_ -match '^0[0-9]+$' }).Count -gt 0) { throw 'Numeric prerelease identifiers cannot have leading zeroes.' }
     # Each run uses a fresh directory: no recursive delete and no stale publish files.
     $runRoot = Join-Path $repoRoot ('artifacts/portable/' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
     $publishFolder = Join-Path $runRoot $packageName
@@ -175,6 +182,10 @@ try {
     Invoke-Dotnet -CommandArguments @('publish', 'src/NyangShinobi.App/NyangShinobi.App.csproj', '-c', 'Release', '-r', 'win-x64',
         '--self-contained', 'true', '-p:PublishProfile=PortableWinX64', '-o', $publishFolder, '-m:1')
     & (Join-Path $PSScriptRoot 'Copy-PortableAdb.ps1') -Destination $publishFolder
+    $sourceCommit = (& git rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot determine source commit.' }
+    [ordered]@{ SchemaVersion = 1; AppId = 'NyangShinobi'; Version = $publishedVersion; Runtime = 'win-x64'; Commit = $sourceCommit; ReleaseTag = $(if ($ReleaseTag) { $ReleaseTag } else { $null }) } |
+        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $publishFolder 'version.json') -Encoding UTF8
 
     $required = @('NyangShinobi.App.exe', 'NyangShinobi.App.dll', 'NyangShinobi.App.runtimeconfig.json',
         'hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll',
@@ -204,6 +215,11 @@ try {
     }
     $nativeReport | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $runRoot 'native-dependencies.json') -Encoding UTF8
     Copy-Item -LiteralPath (Join-Path $repoRoot 'docs/PORTABLE_DISTRIBUTION.md') -Destination (Join-Path $publishFolder 'PORTABLE_README.md')
+    $managedFiles = @(Get-ChildItem -LiteralPath $publishFolder -Recurse -File | Sort-Object FullName | ForEach-Object {
+        [ordered]@{ Path = $_.FullName.Substring($publishFolder.Length + 1).Replace('\', '/'); Length = $_.Length; Sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
+    })
+    [ordered]@{ SchemaVersion = 1; AppId = 'NyangShinobi'; Files = $managedFiles } | ConvertTo-Json -Depth 5 |
+        Set-Content -LiteralPath (Join-Path $publishFolder 'install-manifest.json') -Encoding UTF8
     [void](Test-PortableExe $publishFolder (Join-Path $runRoot 'portable-check.json'))
     Test-BundledAdb $publishFolder (Join-Path $runRoot 'adb-check.txt')
 

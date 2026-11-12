@@ -8,13 +8,15 @@ Windows x64 · C# · .NET 10 · WPF 신규 개발 프로젝트입니다. 현재 
 
 개발·Codex 작업은 [통합 시작 안내](docs/START_HERE.md)와 [AGENTS.md](AGENTS.md)를 먼저 읽습니다. 기존 루트의 시작 안내 두 문서는 통합했으며, 과거 설계 변경 이력은 [docs/changelog/](docs/changelog/)로 옮겼습니다.
 
-**GitHub 자동 배포:** [Push Artifact·태그 Pre-release·다운로드 안내](docs/GITHUB_DISTRIBUTION.md)를 참조하세요. ZIP에는 .NET/WPF/OpenCV와 ADB 및 이미지·기본 설정을 함께 포함합니다.
+**GitHub 자동 배포:** [Push Artifact·태그 Stable/Pre-release·다운로드 안내](docs/GITHUB_DISTRIBUTION.md)를 참조하세요. ZIP에는 .NET/WPF/OpenCV와 ADB 및 이미지·기본 설정을 함께 포함합니다.
+
+**프로그램 업데이트:** [GitHub Releases 업데이트 안내](docs/AUTO_UPDATE.md). 시작 시 1회 조회하고 업데이트 탭에서 채널 선택·수동 확인·나중에·동의 후 설치를 제공합니다. 설치에는 버전/관리 파일 목록을 포함한 새 포터블이 필요합니다.
 
 ## 폴더 구성
 
 ```text
 NyangShinobi/
-├── .github/workflows/portable.yml      # Push 검증/Artifact + 태그 Pre-release
+├── .github/workflows/portable.yml      # Push 검증/Artifact + 태그 Stable/Pre-release
 ├── AGENTS.md
 ├── README.md
 ├── NyangShinobi.slnx

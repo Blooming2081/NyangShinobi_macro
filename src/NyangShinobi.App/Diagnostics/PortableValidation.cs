@@ -4,11 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 using NyangShinobi.Contracts;
 using NyangShinobi.Domain;
 using NyangShinobi.Vision.OpenCvSharp;
+using NyangShinobi.App.Updates;
 
 namespace NyangShinobi.App.Diagnostics;
 
 public sealed record PortableValidationResult(string Runtime, string Architecture, bool LocalRuntime,
-    int Templates, long FrameId, double MatchScore);
+    int Templates, long FrameId, double MatchScore, string Version);
 
 /// <summary>게시 EXE의 오프라인 자가 검사. 실제 ADB·게임 화면·사용자 설정을 사용하지 않는다.</summary>
 public static class PortableValidation
@@ -21,6 +22,8 @@ public static class PortableValidation
             StringComparison.OrdinalIgnoreCase);
         if (!localRuntime || RuntimeInformation.ProcessArchitecture != Architecture.X64)
             throw new InvalidOperationException("게시 폴더의 자체 포함 x64 런타임이 사용되지 않았습니다.");
+        var metadata = BuildMetadata.Read(root);
+        foreach (var file in InstallManifest.Read(root).Files) UpdateFiles.VerifyFile(root, file);
 
         using var services = new ServiceCollection().AddNyangShinobi(Path.Combine(root, "data", "settings.default.v0.1.json"))
             .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
@@ -56,6 +59,6 @@ public static class PortableValidation
         if (match.Result.FrameId != frame.FrameId || evidence.FrameId != frame.FrameId || evidence.Score < 0.999)
             throw new InvalidDataException("게시 파일을 사용한 합성 ROI 매칭 자가 검사에 실패했습니다.");
         return new(RuntimeInformation.FrameworkDescription, RuntimeInformation.ProcessArchitecture.ToString(),
-            localRuntime, assets.Count, frame.FrameId, evidence.Score);
+            localRuntime, assets.Count, frame.FrameId, evidence.Score, metadata.Version);
     }
 }

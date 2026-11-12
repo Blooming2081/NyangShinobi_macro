@@ -6,6 +6,7 @@ using NyangShinobi.Device.Adb;
 using NyangShinobi.Features;
 using NyangShinobi.Vision.OpenCvSharp;
 using NyangShinobi.App.Diagnostics;
+using NyangShinobi.App.Updates;
 
 namespace NyangShinobi.App;
 
@@ -31,6 +32,10 @@ public static class DependencyInjection
         services.AddSingleton<MacroSession>();
         services.AddSingleton<CaptureDiagnostics>();
         services.AddSingleton<DiagnosticsViewModel>();
+        services.AddSingleton<GitHubUpdateClient>();
+        services.AddSingleton<UpdateCoordinator>();
+        services.AddSingleton<IUpdateCoordinator>(provider => provider.GetRequiredService<UpdateCoordinator>());
+        services.AddSingleton<UpdateViewModel>();
         // 실제 장치 세션을 여는 호출자가 scope를 소유한다. UI 시작 버튼은 아직 골격 세션만 연다.
         services.AddScoped<FrameScheduler>();
         services.AddScoped<InputSequencer>();

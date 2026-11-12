@@ -48,6 +48,9 @@ public sealed class WindowLifecycleTests
                     var start = FindButton(window, "StartButton");
                     var stop = FindButton(window, "StopButton");
                     Assert.Same(viewModel.StartCommand, start.Command);
+                    Assert.NotNull(viewModel.Updates);
+                    Assert.Same(viewModel.Updates.CheckCommand, FindButton(window, "CheckUpdate").Command);
+                    Assert.False(FindButton(window, "InstallUpdate").IsEnabled);
                     Assert.Same(viewModel.StopCommand, stop.Command);
                     Assert.True(start.IsEnabled);
                     Assert.False(stop.IsEnabled);

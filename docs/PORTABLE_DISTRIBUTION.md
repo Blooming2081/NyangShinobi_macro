@@ -9,6 +9,8 @@
 
 캡처 방식 비교는 같은 진단 화면 아래 **RAW vs PNG** 탭의 **RAW vs PNG 벤치마크**를 누릅니다. 직접 선택한 ADB/serial로 예열 후 각 10회를 교대로 측정합니다. 결과는 메모리만 사용하며 기본 PNG 방식은 바뀌지 않습니다. **진단 취소**로 중단할 수 있고 측정 중 일반 실행·다른 진단은 차단됩니다.
 
+새 포터블은 실제 버전 `version.json`과 관리 파일 목록 `install-manifest.json`을 포함합니다. **업데이트** 탭에서 Stable / Pre-release (테스트) 두 채널을 확인하고, 매크로/진단 중지 및 동의 후 백업·설치·재실행합니다. 메타데이터 없는 과거 ZIP은 자동 설치하지 않습니다. [업데이트/복원 안내](https://github.com/Blooming2081/NyangShinobi_macro/blob/HEAD/docs/AUTO_UPDATE.md)를 확인하세요.
+
 시작/중지는 현재 게임 입력 없는 골격 세션입니다. Task 03의 임무 진행은 구현되지 않았습니다. 기존 사용자 설정 파일이 있으면 `%LocalAppData%/NyangShinobi/settings.v0.1.json`을 우선 읽고, 없으면 폴더의 `data/settings.default.v0.1.json`을 사용합니다. 포터블은 설치 프로그램이 없는 폴더 배포이며, 이 기존 설정 위치는 변경하지 않았습니다.
 
 ## 포함 파일과 경로
@@ -41,7 +43,7 @@ ADB는 공식 ZIP에서 필요한 파일만 원본 그대로 추출합니다. �
 
 저장소 루트에서 Windows PowerShell 5.1 이상으로 실행합니다. 개발 PC에는 `global.json`에 맞는 .NET 10 SDK가 필요합니다. 스크립트는 저장소의 `.tools/dotnet/dotnet.exe`가 있으면 우선 사용하고, 없으면 PATH의 dotnet을 사용합니다. 사용자 배포에는 SDK를 넣지 않습니다.
 
-최초 실행은 공식 Platform-Tools ZIP 다운로드를 위해 인터넷이 필요합니다. 이후 검증된 `.tools/` 캐시를 재사용합니다. [GitHub 자동 배포 안내](https://github.com/Blooming2081/NyangShinobi_macro/blob/HEAD/docs/GITHUB_DISTRIBUTION.md)에 Push Artifact 및 태그 Pre-release 사용법을 정리했습니다.
+최초 실행은 공식 Platform-Tools ZIP 다운로드를 위해 인터넷이 필요합니다. 이후 검증된 `.tools/` 캐시를 재사용합니다. [GitHub 자동 배포 안내](https://github.com/Blooming2081/NyangShinobi_macro/blob/HEAD/docs/GITHUB_DISTRIBUTION.md)에 Push Artifact 및 태그 Stable/Pre-release 사용법을 정리했습니다.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/Publish-Portable.ps1
